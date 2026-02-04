@@ -1,11 +1,11 @@
-# CODEX – ShaderEditor
+# CODEX – Shader Nerd
 
 This document captures how the app is structured today so you can change it confidently. Keep it close when you explore the code base.
 
 ---
 
 ## 1. What the app does
-- ShaderEditor is an Android GLSL playground/live wallpaper. Users edit fragment shaders, preview them live, import textures/uniforms, and set any shader as a wallpaper (`README.md`).
+- Shader Nerd is an Android GLSL playground/live wallpaper. Users edit fragment shaders, preview them live, import textures/uniforms, and set any shader as a wallpaper (`README.md`).
 - The whole product lives in a single Android application module under `app/`. Source is Java (language level 17) with Gradle Kotlin build scripts.
 - The UI is a single-activity, multi-fragment setup with custom widgets for the editor, shader preview, uniform pickers, and texture tooling.
 - Sensors, camera, microphone, battery status, wallpaper offsets, notification counts, etc., are exposed to shaders as uniforms via `ShaderRenderer`.
@@ -95,7 +95,7 @@ This document captures how the app is structured today so you can change it conf
   - Saves both thumbnails (PNG) and full-resolution PNG matrices. Dimensions feed sampler defaults.
 - `DataRecords` (`database/DataRecords.java:1`) holds immutable records used throughout UI/DAOs.
 - Import/export:
-  - `ImportExportAsFiles` (`io/ImportExportAsFiles.java:1`) reads/writes `.glsl` files under `Downloads/ShaderEditor`. Uses legacy storage APIs on Android < Q; guarded by runtime permissions from `PreferencesFragment`.
+  - `ImportExportAsFiles` (`io/ImportExportAsFiles.java:1`) reads/writes `.glsl` files under `Downloads/ShaderNerd`. Uses legacy storage APIs on Android < Q; guarded by runtime permissions from `PreferencesFragment`.
   - `DatabaseImporter` / `DatabaseExporter` support SAF-based SQLite exports/imports.
   - Texture import flows go through `BitmapEditor` and `TextureDao`.
 

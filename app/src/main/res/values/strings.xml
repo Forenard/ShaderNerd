@@ -1,5 +1,5 @@
 <resources>
-	<string name="app_name">Shader Editor</string>
+	<string name="app_name">Shader Nerd</string>
 
 	<!-- MainActivity -->
 	<string name="drawer_open">Open drawer</string>
@@ -31,7 +31,7 @@
 	<string name="menu_btn">More options</string>
 	<string name="show_errors">Show errors</string>
 	<string name="shader_saved">Shader saved</string>
-	<string name="shader_disabled_after_crash">The previous shader crashed Shader Editor and was commented out.</string>
+	<string name="shader_disabled_after_crash">The previous shader crashed Shader Nerd and was commented out.</string>
 
 	<string name="new_shader_template" translatable="false">#ifdef GL_ES\nprecision mediump float;\n#endif\n\nuniform vec2 resolution;\nuniform float time;\n\nvoid main(void)\n{\n\tvec2 p = gl_FragCoord.xy / resolution.xy;\n\tgl_FragColor = vec4(p.x, p.y, 0.0, 1.0);\n}</string>
 	<string name="details">Details</string>
@@ -72,9 +72,9 @@
 	<string name="default_new_shader">Default new shader</string>
 	<string name="import_export">Import &amp; Export</string>
 	<string name="import_shaders_files">Import shaders from files</string>
-	<string name="import_shaders_files_summary">Import all *.glsl files from Download/ShaderEditor</string>
+	<string name="import_shaders_files_summary">Import all *.glsl files from Download/ShaderNerd</string>
 	<string name="export_shaders_files">Export shaders to files</string>
-	<string name="export_shaders_files_summary">Export all shaders to Download/ShaderEditor</string>
+	<string name="export_shaders_files_summary">Export all shaders to Download/ShaderNerd</string>
 	<string name="import_database">Import database</string>
 	<string name="import_database_summary">Import a previously exported SQLite database</string>
 	<string name="export_database">Export database</string>

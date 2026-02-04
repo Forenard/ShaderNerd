@@ -1,4 +1,4 @@
-# Shader Editor
+# Shader Nerd
 
 Create and edit [GLSL](https://en.wikipedia.org/wiki/GLSL) shaders on
 your Android phone or tablet and use them as live wallpaper.

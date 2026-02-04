@@ -29,9 +29,9 @@ on these devices.
 
 ## `Set wallpaper` doesn't work
 
-You need to set Shader Editor as live wallpaper first. To do this, go to
+You need to set Shader Nerd as live wallpaper first. To do this, go to
 (the system) Settings, Display, Wallpaper, Live Wallpapers and choose Shader
-Editor as your live wallpaper. As soon as Shader Wallpaper is your live
+Nerd as your live wallpaper. As soon as Shader Wallpaper is your live
 wallpaper, you can change what shader is running within the app with those
 menu entries ("Set as wallpaper" and "Update wallpaper" if the current shader
 is the chosen wallpaper shader).

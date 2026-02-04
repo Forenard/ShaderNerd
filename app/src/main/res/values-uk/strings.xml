@@ -31,7 +31,7 @@
 	<string name="menu_btn">Додаткові параметри</string>
 	<string name="show_errors">Показати помилки</string>
 	<string name="shader_saved">Шейдер збережено</string>
-	<string name="shader_disabled_after_crash">Попередній шейдер спричинив збій Shader Editor, тому його закоментовано.</string>
+	<string name="shader_disabled_after_crash">Попередній шейдер спричинив збій Shader Nerd, тому його закоментовано.</string>
 
 	<!-- EditorFragment -->
 	<string name="details">деталі</string>
@@ -72,9 +72,9 @@
 	<string name="default_new_shader">Стандартний новий шейдер</string>
 	<string name="import_export">Імпорт та експорт</string>
 	<string name="import_shaders_files">Імпортувати шейдери з файлів</string>
-	<string name="import_shaders_files_summary">Імпортувати всі файли *.glsl із Download/ShaderEditor</string>
+	<string name="import_shaders_files_summary">Імпортувати всі файли *.glsl із Download/ShaderNerd</string>
 	<string name="export_shaders_files">Експортувати шейдери у файли</string>
-	<string name="export_shaders_files_summary">Експортувати всі шейдери в Download/ShaderEditor</string>
+	<string name="export_shaders_files_summary">Експортувати всі шейдери в Download/ShaderNerd</string>
 	<string name="import_database">Імпорт бази даних</string>
 	<string name="import_database_summary">Імпорт попередньо експортованої бази даних SQLite</string>
 	<string name="export_database">Експорт бази даних</string>

@@ -43,7 +43,7 @@ import de.markusfisch.android.shadereditor.view.SystemBarMetrics;
 public class MainActivity extends AppCompatActivity {
 	private static final String CODE_VISIBLE = "code_visible";
 	private static final String CRASH_RECOVERY_COMMENT = """
-			// Shader Editor disabled this shader because it caused a crash while loading.
+			// Shader Nerd disabled this shader because it caused a crash while loading.
 			// Fix the shader and remove the #if 0 wrapper to re-enable it.
 			""";
 
