@@ -1,5 +1,14 @@
 # CLAUDE.md - Shader Nerd Project Guide
 
+## Development Management
+
+- **`ROADMAP.md`** - 開発の道筋・計画。未着手 (Next) と進行中 (In Progress) のタスクのみ記載
+- **`CHANGELOG.md`** - 開発の履歴。バージョンごとの変更点を記録
+
+**ルール: 完了したタスクは ROADMAP.md に書かない。完了した作業は必ず CHANGELOG.md に記録する。**
+
+CLAUDE.md の肥大化を避けるため、計画と履歴はこれらのファイルに分離する。
+
 ## Project Overview
 
 Shader Nerd - GLSLシェーダーをAndroid上で作成・編集・ライブ壁紙として使用できるアプリ。
@@ -42,6 +51,29 @@ make glxinfo                     # グラフィクス情報
 ```
 
 Windows環境では `./gradlew` の代わりに `gradlew.bat` を使用。
+
+### 実機デバッグ (Windows / USB)
+
+adb にパスが通っていないため、フルパスで実行する。
+
+```bash
+ADB="C:\Users\Renar\AppData\Local\Android\Sdk\platform-tools\adb.exe"
+
+# デバイス確認
+"$ADB" devices -l
+
+# ビルド → インストール → 起動 (一連の流れ)
+e:/WorkSpace_E/ShaderNerd/ShaderNerd/gradlew.bat assembleDebug
+"$ADB" -s <DEVICE_ID> install -r app/build/outputs/apk/debug/app-debug.apk
+"$ADB" -s <DEVICE_ID> shell am start -n de.markusfisch.android.shadereditor.debug/de.markusfisch.android.shadereditor.activity.SplashActivity
+
+# logcat確認 (クラッシュチェック)
+"$ADB" -s <DEVICE_ID> logcat -t 30 --pid=$("$ADB" -s <DEVICE_ID> shell pidof de.markusfisch.android.shadereditor.debug)
+```
+
+- 複数デバイス接続時は `-s <DEVICE_ID>` でデバイスを指定する
+- SDK パスは `local.properties` に `sdk.dir` として設定済み
+- Xiaomi端末は開発者オプション > 「USB経由でインストール」を ON にする必要あり
 
 ## Project Structure
 
@@ -206,8 +238,9 @@ app/src/main/java/de/markusfisch/android/shadereditor/
 | `app/src/main/AndroidManifest.xml` | アプリ定義 (Activity, Service, Permission) |
 | `.editorconfig` | コードスタイル設定 (権威的ソース) |
 | `Makefile` | ビルド自動化 (Unix系向け) |
+| `ROADMAP.md` | 開発ロードマップ・計画 |
+| `CHANGELOG.md` | バージョン別変更履歴 |
 | `CONTRIBUTING.md` | コントリビューションルール |
-| `CHANGELOG.md` | バージョン履歴 |
 | `FAQ.md` | アプリ内FAQ (設定画面から参照) |
 | `PRIVACY.md` | プライバシーポリシー (センサー/カメラ/マイク使用開示) |
 | `fastlane/metadata/` | ストアメタデータ / スクリーンショット |
