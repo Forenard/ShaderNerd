@@ -11,6 +11,7 @@ import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.os.BatteryManager;
@@ -252,6 +253,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private RotationVectorListener rotationVectorListener;
 	private OnRendererListener onRendererListener;
 	private String fragmentShader;
+	private boolean useFloatBackBuffer;
 	private int version = 2;
 	private int deviceRotation;
 	private int surfaceProgram = 0;
@@ -634,6 +636,11 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fb[frontTarget]);
 		GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+		// Generate mipmaps for the rendered backbuffer texture
+		// so the next frame can sample it at any mip level.
+		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tx[frontTarget]);
+		GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
 
 		// then draw framebuffer on screen
 		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
@@ -1217,6 +1224,14 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private void createTargets(int width, int height) {
 		deleteTargets();
 
+		if (version >= 3) {
+			String extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS);
+			useFloatBackBuffer = extensions != null &&
+					extensions.contains("GL_EXT_color_buffer_float");
+		} else {
+			useFloatBackBuffer = false;
+		}
+
 		GLES20.glGenFramebuffers(2, fb, 0);
 		GLES20.glGenTextures(2, tx, 0);
 
@@ -1236,7 +1251,24 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tx[idx]);
 
 		Bitmap bitmap = tp.getPresetBitmap(context, width, height);
-		if (bitmap != null) {
+		if (useFloatBackBuffer) {
+			GLES20.glTexImage2D(
+					GLES20.GL_TEXTURE_2D,
+					0,
+					GLES30.GL_RGBA32F,
+					width,
+					height,
+					0,
+					GLES20.GL_RGBA,
+					GLES20.GL_FLOAT,
+					null);
+			if (bitmap != null) {
+				GLUtils.texSubImage2D(
+						GLES20.GL_TEXTURE_2D,
+						0, 0, 0,
+						flipBitmap(bitmap));
+			}
+		} else if (bitmap != null) {
 			setTexture(bitmap);
 		} else {
 			GLES20.glTexImage2D(
@@ -1331,6 +1363,17 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		if (message != null && onRendererListener != null) {
 			onRendererListener.onInfoLog(List.of(ShaderError.createGeneral(message)));
 		}
+	}
+
+	private static Bitmap flipBitmap(Bitmap bitmap) {
+		android.graphics.Matrix m = new android.graphics.Matrix();
+		m.postScale(1f, -1f);
+		Bitmap flipped = Bitmap.createBitmap(
+				bitmap, 0, 0,
+				bitmap.getWidth(), bitmap.getHeight(),
+				m, true);
+		bitmap.recycle();
+		return flipped;
 	}
 
 	private void createCubeTexture(

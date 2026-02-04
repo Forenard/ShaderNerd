@@ -19,8 +19,8 @@ public class BackBufferParameters extends TextureParameters {
 	private String preset;
 
 	public BackBufferParameters() {
-		super(GLES20.GL_NEAREST,
-				GLES20.GL_NEAREST,
+		super(GLES20.GL_LINEAR_MIPMAP_LINEAR,
+				GLES20.GL_LINEAR,
 				GLES20.GL_CLAMP_TO_EDGE,
 				GLES20.GL_CLAMP_TO_EDGE);
 	}
@@ -43,8 +43,8 @@ public class BackBufferParameters extends TextureParameters {
 	}
 
 	void reset() {
-		set(GLES20.GL_NEAREST,
-				GLES20.GL_NEAREST,
+		set(GLES20.GL_LINEAR_MIPMAP_LINEAR,
+				GLES20.GL_LINEAR,
 				GLES20.GL_CLAMP_TO_EDGE,
 				GLES20.GL_CLAMP_TO_EDGE);
 		preset = null;
