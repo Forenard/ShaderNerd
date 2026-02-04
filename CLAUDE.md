@@ -137,6 +137,17 @@ app/src/main/java/de/markusfisch/android/shadereditor/
   - センサーリスナーはシェーダーが該当uniformを参照する場合のみ登録
 - `PreviewActivity` → 手動実行モード用フルスクリーンプレビュー。`RenderStatus` で結果を `MainActivity` に返送
 
+### OpenGL ES バージョンサポート
+- **最小要件**: GLES 2.0 (`AndroidManifest.xml` で `glEsVersion="0x00020000"` を宣言)
+- **ランタイムサポート**: GLES 3.0 / 3.1 / 3.2 (デバイスが対応していれば自動使用)
+- **コンテキスト生成** (`ShaderView.ContextFactory`): EGLコンテキスト作成時に GLES 3 を試行し、失敗した場合 GLES 2 にフォールバック
+- **シェーダーバージョン検出** (`ShaderRenderer`): 正規表現 `^#version 3[0-9]{2} es$` でシェーダーソースの `#version` ディレクティブを解析。GLES 3系と判定された場合、対応する頂点シェーダーと OES 拡張を切り替え
+- **コンパイル**: `GLES20` API を使用 (GLES 2/3 両コンテキストで後方互換)
+- **関連ファイル**:
+  - `widget/ShaderView.java` - EGLコンテキストファクトリ (GLES 3→2 フォールバック)
+  - `opengl/ShaderRenderer.java` - バージョン検出ロジック、頂点シェーダー切替
+  - `opengl/Program.java` - シェーダーコンパイル・リンク
+
 ### ライブ壁紙 & サービス
 - `ShaderWallpaperService` → ライブ壁紙エンジン。`ShaderView`/`ShaderRenderer` を再利用。低バッテリー時に `RENDERMODE_WHEN_DIRTY` へ切替
 - `NotificationService` → 通知リスナー。`notificationCount` / `lastNotificationTime` uniformを供給
