@@ -14,6 +14,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.app.ShaderEditorApp;
@@ -37,14 +38,23 @@ public class SystemBarMetrics {
 		// Enable edge-to-edge display
 		WindowCompat.setDecorFitsSystemWindows(window, false);
 
+		// Hide navigation bar by default (swipe to reveal)
+		WindowInsetsControllerCompat controller =
+				WindowCompat.getInsetsController(window, window.getDecorView());
+		controller.hide(WindowInsetsCompat.Type.navigationBars());
+		controller.setSystemBarsBehavior(
+				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+
 		View navbar = activity.findViewById(R.id.navbar);
 		// System bars no longer have a background from SDK35+.
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
 			int color = ShaderEditorApp.preferences.getSystemBarColor();
 			window.setStatusBarColor(color);
 			window.setNavigationBarColor(color);
-		} else if (navbar != null) {
-			navbar.setVisibility(View.VISIBLE);
+		}
+		// navbar view is no longer needed since navigation bar is hidden
+		if (navbar != null) {
+			navbar.setVisibility(View.GONE);
 		}
 
 		View mainLayout = activity.findViewById(R.id.main_layout);
@@ -70,7 +80,8 @@ public class SystemBarMetrics {
 			int right = systemBarsInsets.right;
 			int bottom = systemBarsInsets.bottom;
 
-			mainLayout.setPadding(left, top, right, bottom);
+			// Only apply top padding for status bar (navigation bar is hidden)
+			mainLayout.setPadding(left, 0, right, bottom);
 			if (windowInsets != null) {
 				windowInsets.set(left, top, right, bottom);
 			}
@@ -80,13 +91,6 @@ public class SystemBarMetrics {
 					top > 0) {
 				toolbar.setPadding(0, top, 0, 0);
 				toolbar.getLayoutParams().height += top;
-			}
-
-			if (bottom > 0) {
-				mainLayout.setPadding(0, 0, 0, bottom);
-				if (navbar != null) {
-					navbar.getLayoutParams().height = bottom;
-				}
 			}
 
 			return insets;

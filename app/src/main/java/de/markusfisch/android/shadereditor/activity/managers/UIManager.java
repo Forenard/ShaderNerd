@@ -166,10 +166,6 @@ public class UIManager {
 	private void exitFullscreen() {
 		// Show UI elements
 		mainLayout.setVisibility(View.VISIBLE);
-		if (navbar != null && android.os.Build.VERSION.SDK_INT >=
-				android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-			navbar.setVisibility(View.VISIBLE);
-		}
 		extraKeysManager.setVisible(ShaderEditorApp.preferences.showExtraKeys());
 
 		// Restore padding
@@ -179,10 +175,10 @@ public class UIManager {
 				mainLayout.getPaddingRight(),
 				savedMainLayoutPaddingBottom);
 
-		// Show system bars
+		// Show status bar only (navigation bar stays hidden)
 		Window window = activity.getWindow();
 		WindowInsetsControllerCompat controller =
 				WindowCompat.getInsetsController(window, window.getDecorView());
-		controller.show(WindowInsetsCompat.Type.systemBars());
+		controller.show(WindowInsetsCompat.Type.statusBars());
 	}
 }
