@@ -12,6 +12,7 @@ import android.media.AudioManager;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.opengl.GLES31;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.os.BatteryManager;
@@ -182,6 +183,25 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			Pattern.MULTILINE);
 	private static final Pattern PATTERN_GLES3_VERSION = Pattern.compile(
 			"^#version 3[0-9]{2} es$", Pattern.MULTILINE);
+	private static final Pattern PATTERN_IMAGE_OPS = Pattern.compile(
+			"imageLoad|imageStore|imageAtomicAdd|imageAtomicMin|" +
+					"imageAtomicMax|imageAtomicAnd|imageAtomicOr|" +
+					"imageAtomicXor|imageAtomicExchange|" +
+					"imageAtomicCompSwap|imageSize");
+	private static final Pattern PATTERN_COMPUTE_TEX_DECL = Pattern.compile(
+			"uimage2D\\s+computeTex");
+	private static final Pattern PATTERN_USER_COMPUTE_TEX_DECL = Pattern.compile(
+			"^.*layout\\s*\\([^)]*\\)\\s*uniform\\s+coherent\\s+" +
+					"uimage2D\\s+computeTex(Back)?\\s*\\[\\s*3\\s*\\]\\s*;.*$",
+			Pattern.MULTILINE);
+	private static final String IMAGE_PRECISION_PREPEND =
+			"precision highp float;\n" +
+					"precision highp int;\n" +
+					"precision highp uimage2D;\n";
+	private static final String IMAGE_UNIFORMS_PREPEND =
+			"layout(r32ui, binding = 0) uniform coherent uimage2D computeTex[3];\n" +
+					"layout(r32ui, binding = 3) uniform coherent uimage2D " +
+					"computeTexBack[3];\n";
 	private static final String OES_EXTERNAL =
 			"#extension GL_OES_EGL_image_external : require\n";
 	private static final String OES_EXTERNAL_ESS3 =
@@ -206,13 +226,27 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			#else
 			precision mediump float;
 			#endif
-			
+
 			uniform vec2 resolution;
 			uniform sampler2D frame;
 			void main(void) {
 				gl_FragColor = texture2D(frame,gl_FragCoord.xy / resolution.xy).rgba;
 			}
 			""";
+	private static final String CLEAR_COMPUTE_SHADER =
+			"#version 310 es\n" +
+					"precision highp int;\n" +
+					"precision highp uimage2D;\n" +
+					"layout(r32ui, binding = 0) uniform " +
+					"uimage2D clearTarget;\n" +
+					"uniform ivec2 clearSize;\n" +
+					"layout(local_size_x = 16, local_size_y = 16) in;\n" +
+					"void main() {\n" +
+					"    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);\n" +
+					"    if (pos.x < clearSize.x && pos.y < clearSize.y) {\n" +
+					"        imageStore(clearTarget, pos, uvec4(0u));\n" +
+					"    }\n" +
+					"}\n";
 
 	private final TextureBinder textureBinder = new TextureBinder();
 	private final ArrayList<String> textureNames = new ArrayList<>();
@@ -222,6 +256,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			new BackBufferParameters();
 	private final int[] fb = new int[]{0, 0};
 	private final int[] tx = new int[]{0, 0};
+	private final int[] imageTx = new int[6];
+	private int clearComputeProgram = 0;
 	private final int[] textureLocs = new int[32];
 	private final int[] textureTargets = new int[32];
 	private final int[] textureIds = new int[32];
@@ -254,6 +290,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private OnRendererListener onRendererListener;
 	private String fragmentShader;
 	private boolean useFloatBackBuffer;
+	private boolean useImageOps;
 	private int version = 2;
 	private int deviceRotation;
 	private int surfaceProgram = 0;
@@ -412,6 +449,9 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			// <core_glDeleteProgram:594>: GL_INVALID_VALUE
 			surfaceProgram = 0;
 		}
+
+		// GL context destroyed all programs; just reset the handle.
+		clearComputeProgram = 0;
 
 		if (program != 0) {
 			// Don't glDeleteProgram(program).
@@ -604,6 +644,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		if (fb[0] == 0) {
 			createTargets((int) resolution[0], (int) resolution[1]);
+			if (useImageOps && imageTx[0] == 0) {
+				createImageTextures(
+						(int) resolution[0], (int) resolution[1]);
+			}
 		}
 
 		// First draw custom shader in framebuffer.
@@ -634,8 +678,34 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 					textureIds[i]);
 		}
 
+		// Bind image textures for compute operations.
+		if (useImageOps) {
+			int writeSet = frontTarget % 2;
+			int readSet = backTarget % 2;
+			clearImageTextures(writeSet);
+			for (int i = 0; i < 3; i++) {
+				GLES31.glBindImageTexture(i,
+						imageTx[writeSet * 3 + i], 0, false, 0,
+						GLES31.GL_READ_WRITE, GLES31.GL_R32UI);
+			}
+			for (int i = 0; i < 3; i++) {
+				GLES31.glBindImageTexture(3 + i,
+						imageTx[readSet * 3 + i], 0, false, 0,
+						GLES31.GL_READ_ONLY, GLES31.GL_R32UI);
+			}
+			// Note: Image uniform bindings MUST be set via layout(binding=N)
+			// in the shader. Unlike samplers, glUniform1i does NOT work for
+			// image uniforms in GLES.
+		}
+
 		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fb[frontTarget]);
 		GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+		// Ensure image writes are visible before next frame reads.
+		if (useImageOps) {
+			GLES31.glMemoryBarrier(
+					GLES31.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		}
 
 		// Generate mipmaps for the rendered backbuffer texture
 		// so the next frame can sample it at any mip level.
@@ -804,6 +874,9 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	}
 
 	private void loadPrograms() {
+		useImageOps = version >= 3 &&
+				PATTERN_IMAGE_OPS.matcher(fragmentShader).find();
+
 		// Attempt to load the surface program
 		surfaceProgram = Program.loadProgram(VERTEX_SHADER, FRAGMENT_SHADER);
 
@@ -813,8 +886,13 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			return;
 		}
 
+		// Prepend image declarations for shaders using imageLoad/imageStore
+		String fragmentSource = useImageOps
+				? prependImageDeclarations(fragmentShader)
+				: fragmentShader;
+
 		// Attempt to load the main program
-		program = Program.loadProgram(getVertexShader(), fragmentShader);
+		program = Program.loadProgram(getVertexShader(), fragmentSource);
 
 		// If the main program fails to compile, submit errors and return
 		if (program == 0) {
@@ -824,6 +902,25 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		// If both programs compiled successfully, log an empty list of errors
 		submitErrors(Collections.emptyList());
+	}
+
+	private String prependImageDeclarations(String source) {
+		String version = getGLES3Version(source);
+		if (version == null) {
+			version = "#version 310 es";
+		}
+		String body = source.replaceFirst(
+				"^#version[^\n]*\n", "");
+		// Remove any user-declared computeTex/computeTexBack to avoid
+		// duplicates and ensure our declarations with proper bindings are used.
+		// Image uniforms MUST have layout(binding=N) in GLES.
+		body = PATTERN_USER_COMPUTE_TEX_DECL.matcher(body).replaceAll("");
+		StringBuilder sb = new StringBuilder();
+		sb.append(version).append("\n");
+		sb.append(IMAGE_PRECISION_PREPEND);
+		sb.append(IMAGE_UNIFORMS_PREPEND);
+		sb.append(body);
+		return sb.toString();
 	}
 
 	// Helper method to submit program errors
@@ -1219,6 +1316,96 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		GLES20.glDeleteTextures(2, tx, 0);
 
 		fb[0] = 0;
+		deleteImageTextures();
+	}
+
+	private void createImageTextures(int width, int height) {
+		deleteImageTextures();
+		GLES20.glGenTextures(6, imageTx, 0);
+		for (int i = 0; i < 6; i++) {
+			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTx[i]);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+					GLES20.GL_TEXTURE_MIN_FILTER,
+					GLES20.GL_NEAREST);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+					GLES20.GL_TEXTURE_MAG_FILTER,
+					GLES20.GL_NEAREST);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+					GLES20.GL_TEXTURE_WRAP_S,
+					GLES20.GL_CLAMP_TO_EDGE);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+					GLES20.GL_TEXTURE_WRAP_T,
+					GLES20.GL_CLAMP_TO_EDGE);
+			GLES31.glTexStorage2D(GLES20.GL_TEXTURE_2D, 1,
+					GLES31.GL_R32UI, width, height);
+		}
+		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+	}
+
+	private void clearImageTextures(int setIndex) {
+		if (clearComputeProgram == 0) {
+			clearComputeProgram = createClearComputeProgram();
+			if (clearComputeProgram == 0) {
+				return;
+			}
+		}
+		int w = (int) resolution[0];
+		int h = (int) resolution[1];
+		int groupsX = (w + 15) / 16;
+		int groupsY = (h + 15) / 16;
+		GLES20.glUseProgram(clearComputeProgram);
+		int sizeLoc = GLES20.glGetUniformLocation(clearComputeProgram,
+				"clearSize");
+		GLES20.glUniform2i(sizeLoc, w, h);
+		for (int i = 0; i < 3; i++) {
+			GLES31.glBindImageTexture(0,
+					imageTx[setIndex * 3 + i], 0, false, 0,
+					GLES31.GL_READ_WRITE, GLES31.GL_R32UI);
+			GLES31.glDispatchCompute(groupsX, groupsY, 1);
+			// Barrier after each clear to ensure completion
+			GLES31.glMemoryBarrier(
+					GLES31.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		}
+		GLES20.glUseProgram(program);
+	}
+
+	private int createClearComputeProgram() {
+		int shader = GLES20.glCreateShader(GLES31.GL_COMPUTE_SHADER);
+		GLES20.glShaderSource(shader, CLEAR_COMPUTE_SHADER);
+		GLES20.glCompileShader(shader);
+		int[] status = new int[1];
+		GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS,
+				status, 0);
+		if (status[0] == 0) {
+			GLES20.glDeleteShader(shader);
+			return 0;
+		}
+		int prog = GLES20.glCreateProgram();
+		GLES20.glAttachShader(prog, shader);
+		GLES20.glLinkProgram(prog);
+		GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS,
+				status, 0);
+		if (status[0] == 0) {
+			GLES20.glDeleteProgram(prog);
+			GLES20.glDeleteShader(shader);
+			return 0;
+		}
+		GLES20.glDeleteShader(shader);
+		return prog;
+	}
+
+	private void deleteImageTextures() {
+		if (imageTx[0] == 0) {
+			return;
+		}
+		GLES20.glDeleteTextures(6, imageTx, 0);
+		for (int i = 0; i < 6; i++) {
+			imageTx[i] = 0;
+		}
+		if (clearComputeProgram != 0) {
+			GLES20.glDeleteProgram(clearComputeProgram);
+			clearComputeProgram = 0;
+		}
 	}
 
 	private void createTargets(int width, int height) {
