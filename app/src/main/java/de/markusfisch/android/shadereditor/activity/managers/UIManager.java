@@ -1,12 +1,17 @@
 package de.markusfisch.android.shadereditor.activity.managers;
 
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.app.ShaderEditorApp;
@@ -20,6 +25,11 @@ public class UIManager {
 	private final ShaderViewManager shaderViewManager;
 	private final Toolbar toolbar;
 	private final TouchThruDrawerLayout drawerLayout;
+	private final View mainLayout;
+	private final View mainCoordinator;
+	private final View navbar;
+	private boolean isFullscreen = false;
+	private int savedMainLayoutPaddingBottom = 0;
 
 	public final ActionBarDrawerToggle drawerToggle;
 
@@ -35,6 +45,9 @@ public class UIManager {
 		toolbar = activity.findViewById(R.id.toolbar);
 		activity.setSupportActionBar(toolbar);
 
+		mainLayout = activity.findViewById(R.id.main_layout);
+		mainCoordinator = activity.findViewById(R.id.main_coordinator);
+		navbar = activity.findViewById(R.id.navbar);
 		drawerLayout = activity.findViewById(R.id.drawer_layout);
 		drawerToggle = new ActionBarDrawerToggle(
 				activity, drawerLayout, toolbar,
@@ -59,6 +72,10 @@ public class UIManager {
 		ViewCompat.setTooltipText(toggleCode, activity.getText(R.string.toggle_code));
 		toggleCode.setOnClickListener(toggleCodeClickListener);
 
+		View fullscreen = toolbar.findViewById(R.id.fullscreen);
+		ViewCompat.setTooltipText(fullscreen, activity.getText(R.string.fullscreen));
+		fullscreen.setOnClickListener(v -> toggleFullscreen());
+
 		View showErrors = toolbar.findViewById(R.id.show_errors);
 		ViewCompat.setTooltipText(showErrors, activity.getText(R.string.show_errors));
 		showErrors.setOnClickListener(showErrorClickListener);
@@ -70,8 +87,13 @@ public class UIManager {
 		shaderViewManager.setVisibility(runInBackground);
 		toolbar.findViewById(R.id.toggle_code).setVisibility(
 				runInBackground ? View.VISIBLE : View.GONE);
+		toolbar.findViewById(R.id.fullscreen).setVisibility(
+				runInBackground ? View.VISIBLE : View.GONE);
 		if (!runInBackground && !editorFragment.isCodeVisible()) {
 			toggleCodeVisibility();
+		}
+		if (!runInBackground && isFullscreen) {
+			setFullscreen(false);
 		}
 		toolbar.findViewById(R.id.run_code).setVisibility(
 				!ShaderEditorApp.preferences.doesRunOnChange()
@@ -102,5 +124,65 @@ public class UIManager {
 
 	public void setToolbarSubtitle(String subtitle) {
 		toolbar.post(() -> toolbar.setSubtitle(subtitle));
+	}
+
+	public boolean isFullscreen() {
+		return isFullscreen;
+	}
+
+	public void setFullscreen(boolean fullscreen) {
+		isFullscreen = fullscreen;
+		if (fullscreen) {
+			enterFullscreen();
+		} else {
+			exitFullscreen();
+		}
+	}
+
+	public void toggleFullscreen() {
+		setFullscreen(!isFullscreen);
+	}
+
+	private void enterFullscreen() {
+		// Save current padding
+		savedMainLayoutPaddingBottom = mainLayout.getPaddingBottom();
+
+		// Hide UI elements
+		mainLayout.setVisibility(View.GONE);
+		if (navbar != null) {
+			navbar.setVisibility(View.GONE);
+		}
+		extraKeysManager.setVisible(false);
+
+		// Hide system bars using WindowInsetsController
+		Window window = activity.getWindow();
+		WindowInsetsControllerCompat controller =
+				WindowCompat.getInsetsController(window, window.getDecorView());
+		controller.hide(WindowInsetsCompat.Type.systemBars());
+		controller.setSystemBarsBehavior(
+				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+	}
+
+	private void exitFullscreen() {
+		// Show UI elements
+		mainLayout.setVisibility(View.VISIBLE);
+		if (navbar != null && android.os.Build.VERSION.SDK_INT >=
+				android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+			navbar.setVisibility(View.VISIBLE);
+		}
+		extraKeysManager.setVisible(ShaderEditorApp.preferences.showExtraKeys());
+
+		// Restore padding
+		mainLayout.setPadding(
+				mainLayout.getPaddingLeft(),
+				mainLayout.getPaddingTop(),
+				mainLayout.getPaddingRight(),
+				savedMainLayoutPaddingBottom);
+
+		// Show system bars
+		Window window = activity.getWindow();
+		WindowInsetsControllerCompat controller =
+				WindowCompat.getInsetsController(window, window.getDecorView());
+		controller.show(WindowInsetsCompat.Type.systemBars());
 	}
 }

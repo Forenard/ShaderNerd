@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import de.markusfisch.android.shadereditor.R;
@@ -33,11 +34,8 @@ public class SystemBarMetrics {
 			@Nullable Rect insets) {
 		Window window = activity.getWindow();
 
-		// Expand layout below system bars.
-		window.getDecorView().setSystemUiVisibility(
-				View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-						View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-						View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+		// Enable edge-to-edge display
+		WindowCompat.setDecorFitsSystemWindows(window, false);
 
 		View navbar = activity.findViewById(R.id.navbar);
 		// System bars no longer have a background from SDK35+.

@@ -31,6 +31,16 @@
 		app:iconSize="24dp" />
 
 	<Button
+		android:id="@+id/fullscreen"
+		style="@style/IconButton"
+		android:layout_width="48dp"
+		android:layout_height="48dp"
+		android:layout_gravity="end"
+		android:layout_marginEnd="4dp"
+		app:icon="@drawable/ic_fullscreen"
+		app:iconSize="24dp" />
+
+	<Button
 		android:id="@+id/run_code"
 		style="@style/IconButton"
 		android:layout_width="48dp"

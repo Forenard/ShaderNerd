@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -42,6 +43,7 @@ import de.markusfisch.android.shadereditor.view.SystemBarMetrics;
 
 public class MainActivity extends AppCompatActivity {
 	private static final String CODE_VISIBLE = "code_visible";
+	private static final String FULLSCREEN_MODE = "fullscreen_mode";
 	private static final String CRASH_RECOVERY_COMMENT = """
 			// Shader Nerd disabled this shader because it caused a crash while loading.
 			// Fix the shader and remove the #if 0 wrapper to re-enable it.
@@ -109,6 +111,19 @@ public class MainActivity extends AppCompatActivity {
 				v -> uiManager.toggleCodeVisibility(),
 				v -> editorFragment.showErrors());
 
+		// Handle back button to exit fullscreen mode
+		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+			@Override
+			public void handleOnBackPressed() {
+				if (uiManager.isFullscreen()) {
+					uiManager.setFullscreen(false);
+				} else {
+					setEnabled(false);
+					getOnBackPressedDispatcher().onBackPressed();
+				}
+			}
+		});
+
 		shaderManager.handleSendText(getIntent());
 
 		if (state == null) {
@@ -140,12 +155,16 @@ public class MainActivity extends AppCompatActivity {
 		if (!state.getBoolean(CODE_VISIBLE, true)) {
 			uiManager.toggleCodeVisibility();
 		}
+		if (state.getBoolean(FULLSCREEN_MODE, false)) {
+			uiManager.setFullscreen(true);
+		}
 	}
 
 	@Override
 	protected void onSaveInstanceState(@NonNull Bundle state) {
 		shaderManager.saveState(state);
 		state.putBoolean(CODE_VISIBLE, editorFragment.isCodeVisible());
+		state.putBoolean(FULLSCREEN_MODE, uiManager.isFullscreen());
 		super.onSaveInstanceState(state);
 	}
 
@@ -411,7 +430,6 @@ public class MainActivity extends AppCompatActivity {
 			public void onToggleExtraKeys() {
 				extraKeysManager.setVisible(ShaderEditorApp.preferences.toggleShowExtraKeys());
 			}
-
 
 			@Override
 			public long getSelectedShaderId() {
