@@ -3,6 +3,8 @@
 ## 2.37.0
 * Upgrade backbuffer to float32 (RGBA32F) with linear filtering and per-frame mipmap generation on GLES 3.0+ devices (falls back to RGBA8 on GLES 2.0)
 * Add compute feedback support: `computeTex[3]` / `computeTexBack[3]` R32UI image textures for `imageLoad`, `imageStore`, `imageAtomicAdd` etc. on GLES 3.1+ (Bonzomatic-Compute compatible)
+* Add fullscreen mode: toolbar button hides all UI (toolbar, status bar) to show shader output only
+* Hide navigation bar by default for more shader screen space (swipe from bottom to reveal)
 
 ## 2.36.1
 * Fix main layout for old Androids
