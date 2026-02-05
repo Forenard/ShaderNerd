@@ -46,19 +46,12 @@ public class CropImageView extends ScalingImageView {
 		right -= insets.right;
 		bottom -= insets.bottom;
 
-		int width = right - left;
-		int height = bottom - top;
-		int size = width < height
-				? width - padding * 2
-				: height - padding * 2;
-		int hpad = (width - size) / 2;
-		int vpad = (height - size) / 2;
-
+		// Allow free-form crop (non-square) using full available area
 		setBounds(
-				(float) left + hpad,
-				(float) top + vpad,
-				(float) right - hpad,
-				(float) bottom - vpad);
+				(float) left + padding,
+				(float) top + padding,
+				(float) right - padding,
+				(float) bottom - padding);
 
 		center(getBounds());
 	}

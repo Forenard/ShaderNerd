@@ -60,6 +60,8 @@ public class SamplerCubePropertiesFragment extends AbstractSamplerPropertiesFrag
 			return null;
 		}
 
+		// Use SeekBar mode for cubemaps (power-of-2 sizes only)
+		useSeekBarMode();
 		setSizeCaption(getString(R.string.face_size));
 		setMaxValue(7);
 		setSamplerType(SAMPLER_CUBE);
@@ -71,13 +73,16 @@ public class SamplerCubePropertiesFragment extends AbstractSamplerPropertiesFrag
 	protected int saveSampler(
 			Context context,
 			String name,
-			int size) {
+			int width,
+			int height) {
+		// For cubemaps, width = height = face size
+		int size = width;
 		DataSource dataSource = Database.getInstance(context).getDataSource();
-		int width = size * 2;
-		int height = size * 3;
+		int mapWidth = size * 2;
+		int mapHeight = size * 3;
 		Bitmap mapBitmap = Bitmap.createBitmap(
-				width,
-				height,
+				mapWidth,
+				mapHeight,
 				Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(mapBitmap);
 		int x = 0;
@@ -112,7 +117,7 @@ public class SamplerCubePropertiesFragment extends AbstractSamplerPropertiesFrag
 
 			x += size;
 
-			if (x >= width) {
+			if (x >= mapWidth) {
 				y += size;
 				x = 0;
 			}

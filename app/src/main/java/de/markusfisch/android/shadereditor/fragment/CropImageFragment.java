@@ -121,7 +121,7 @@ public class CropImageFragment extends Fragment {
 				Bitmap b = BitmapEditor.getBitmapFromUri(
 						activity,
 						imageUri,
-						1024);
+						AbstractSamplerPropertiesFragment.MAX_TEXTURE_SIZE);
 				handler.post(() -> {
 					inProgress = false;
 					progressView.setVisibility(View.GONE);

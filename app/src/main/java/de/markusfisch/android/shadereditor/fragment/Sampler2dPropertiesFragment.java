@@ -3,6 +3,7 @@ package de.markusfisch.android.shadereditor.fragment;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
@@ -12,6 +13,8 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+
+import java.io.InputStream;
 
 import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.database.DataSource;
@@ -58,68 +61,85 @@ public class Sampler2dPropertiesFragment extends AbstractSamplerPropertiesFragme
 		View view;
 
 		if ((args = getArguments()) == null ||
-				(imageUri = args.getParcelable(
-						IMAGE_URI)) == null ||
-				(cropRect = args.getParcelable(
-						CROP_RECT)) == null ||
-				(view = initView(
-						activity,
-						inflater,
-						container)) == null) {
+				(imageUri = args.getParcelable(IMAGE_URI)) == null ||
+				(cropRect = args.getParcelable(CROP_RECT)) == null ||
+				(view = initView(activity, inflater, container)) == null) {
 			activity.finish();
 			return null;
 		}
 
 		imageRotation = args.getFloat(ROTATION);
 
+		// Calculate default dimensions from the cropped region
+		int[] imageDimensions = getImageDimensions(activity, imageUri);
+		if (imageDimensions != null) {
+			int origWidth = imageDimensions[0];
+			int origHeight = imageDimensions[1];
+			// Apply rotation to dimensions
+			if (imageRotation == 90 || imageRotation == 270) {
+				int temp = origWidth;
+				origWidth = origHeight;
+				origHeight = temp;
+			}
+			// Calculate cropped size
+			int croppedWidth = Math.round(cropRect.width() * origWidth);
+			int croppedHeight = Math.round(cropRect.height() * origHeight);
+			setDefaultDimensions(croppedWidth, croppedHeight);
+		}
+
 		return view;
+	}
+
+	private static int[] getImageDimensions(Context context, Uri uri) {
+		try (InputStream in = context.getContentResolver().openInputStream(uri)) {
+			if (in == null) {
+				return null;
+			}
+			BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;
+			BitmapFactory.decodeStream(in, null, options);
+			return new int[]{options.outWidth, options.outHeight};
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	@Override
 	protected int saveSampler(
 			Context context,
 			String name,
-			int size) {
+			int width,
+			int height) {
 		return saveTexture(
-				context, // Pass the context down to the helper.
-				// Try to get a bigger source image in
-				// case the cut out is quite small.
+				context,
 				BitmapEditor.getBitmapFromUri(
 						context,
 						imageUri,
-						// Which doesn't work for some devices.
-						// 2048 is too much => out of memory.
-						1024),
+						MAX_TEXTURE_SIZE),
 				cropRect,
 				imageRotation,
 				name,
-				size);
+				width,
+				height);
 	}
 
 	private static int saveTexture(
-			Context context, // Add Context parameter.
+			Context context,
 			Bitmap bitmap,
 			RectF rect,
 			float rotation,
 			String name,
-			int size) {
-		if ((bitmap = BitmapEditor.crop(
-				bitmap,
-				rect,
-				rotation)) == null) {
+			int width,
+			int height) {
+		if ((bitmap = BitmapEditor.crop(bitmap, rect, rotation)) == null) {
 			return R.string.illegal_rectangle;
 		}
 
-		// Get the DataSource using the modern singleton pattern.
 		DataSource dataSource = Database.getInstance(context).getDataSource();
 
 		if (dataSource.texture.insertTexture(
 				name,
-				Bitmap.createScaledBitmap(
-						bitmap,
-						size,
-						size,
-						true)) < 1) {
+				Bitmap.createScaledBitmap(bitmap, width, height, true)) < 1) {
 			return R.string.name_already_taken;
 		}
 
