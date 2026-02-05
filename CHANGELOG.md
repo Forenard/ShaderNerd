@@ -5,7 +5,7 @@
 * Add compute feedback support: `computeTex[3]` / `computeTexBack[3]` R32UI image textures for `imageLoad`, `imageStore`, `imageAtomicAdd` etc. on GLES 3.1+ (Bonzomatic-Compute compatible)
 * Add fullscreen mode: toolbar button hides all UI (toolbar, status bar) to show shader output only
 * Hide navigation bar by default for more shader screen space (swipe from bottom to reveal)
-* Enhance texture import: allow free-form crop (non-square), custom width/height input (up to 4096px), defaults to original image dimensions
+* Enhance texture import: skip crop step, custom width/height input (up to 4096px), defaults to original image dimensions, support non-square textures
 
 ## 2.36.1
 * Fix main layout for old Androids

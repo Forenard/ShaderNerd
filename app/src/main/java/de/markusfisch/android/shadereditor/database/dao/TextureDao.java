@@ -145,7 +145,8 @@ public class TextureDao {
 	private List<DataRecords.TextureInfo> getTextures(@Nullable String substring,
 			boolean isCubeMap) {
 		List<DataRecords.TextureInfo> textures = new ArrayList<>();
-		String where = DatabaseContract.TextureColumns.RATIO + (isCubeMap ? " = 1.5" : " = 1") +
+		// Cubemaps have ratio 1.5 (height/width = 3/2), 2D textures have any other ratio
+		String where = DatabaseContract.TextureColumns.RATIO + (isCubeMap ? " = 1.5" : " != 1.5") +
 				(substring != null ? " AND " + DatabaseContract.TextureColumns.NAME + " LIKE ?" :
 						"");
 		var args = substring != null ? new String[]{"%" + substring + "%"} : null;

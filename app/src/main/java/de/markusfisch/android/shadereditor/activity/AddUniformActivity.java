@@ -33,7 +33,7 @@ public class AddUniformActivity extends AbstractContentActivity {
 	}
 
 	private ActivityResultLauncher<Intent> pickImageLauncher;
-	private ActivityResultLauncher<Intent> cropImageLauncher;
+	private ActivityResultLauncher<Intent> texturePropertiesLauncher;
 	private ActivityResultLauncher<Intent> pickTextureLauncher;
 
 	public static void setAddUniformResult(@NonNull Activity activity, String name) {
@@ -78,14 +78,14 @@ public class AddUniformActivity extends AbstractContentActivity {
 					if (result.getResultCode() == RESULT_OK && result.getData() != null) {
 						Uri imageUri = result.getData().getData();
 						if (imageUri != null) {
-							Intent cropIntent = CropImageActivity.getIntentForImage(
+							Intent propertiesIntent = TexturePropertiesActivity.getIntentForImage(
 									this, imageUri);
-							cropImageLauncher.launch(cropIntent);
+							texturePropertiesLauncher.launch(propertiesIntent);
 						}
 					}
 				});
 
-		cropImageLauncher = registerForActivityResult(
+		texturePropertiesLauncher = registerForActivityResult(
 				new ActivityResultContracts.StartActivityForResult(),
 				result -> {
 					if (result.getResultCode() == RESULT_OK && result.getData() != null) {
@@ -129,8 +129,8 @@ public class AddUniformActivity extends AbstractContentActivity {
 			return;
 		}
 
-		Intent cropIntent = CropImageActivity.getIntentForImage(this, imageUri);
-		cropImageLauncher.launch(cropIntent);
+		Intent propertiesIntent = TexturePropertiesActivity.getIntentForImage(this, imageUri);
+		texturePropertiesLauncher.launch(propertiesIntent);
 	}
 
 	public void startPickImage() {

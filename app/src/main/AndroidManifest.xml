@@ -144,6 +144,10 @@
 			android:label="@string/crop_image"
 			android:exported="false"/>
 		<activity
+			android:name=".activity.TexturePropertiesActivity"
+			android:label="@string/texture_properties"
+			android:exported="false"/>
+		<activity
 			android:name=".activity.CubeMapActivity"
 			android:label="@string/add_uniform"
 			android:exported="false"/>
