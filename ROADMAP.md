@@ -11,10 +11,7 @@
 ### 1. カスタム Vertex Shader
 現在はビルトインの頂点シェーダーのみ使用可能だが、ユーザーが独自の Vertex Shader を記述・編集できるようにする。
 
-### 2. マルチパスレンダリング
-ShaderToy のように複数パス (Buffer A, B, C, D → Image) でレンダリングを行う機能を追加する。パス間でテクスチャを受け渡し、複雑なエフェクトの構築を可能にする。
-
-### 3. Google Drive 連携
+### 2. Google Drive 連携
 Google Drive と連携し、シェーダーをクラウドに保存・同期する機能を追加する。
 
 ## In Progress (進行中)

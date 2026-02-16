@@ -151,6 +151,7 @@
 	<string name="power_connected">1 when power cable is connected, 0 otherwise</string>
 	<string name="wallpaper_offset">Wallpaper offset from 0.0 to 1.0</string>
 	<string name="previous_frame">Previous rendered frame</string>
+	<string name="buffer_n">Multi-pass buffer output (define main0(), main1(), … and use buffer0, buffer1, …)</string>
 	<string name="camera_back">Back camera (only on Ice Cream Sandwich or better)</string>
 	<string name="camera_front">Front camera (only on Ice Cream Sandwich or better)</string>
 	<string name="camera_addent">Addent to camera texture coordinate, see also cameraOrientation (only on Ice Cream Sandwich or better)</string>
@@ -241,6 +242,8 @@
 	<string name="sample_game_of_life_rationale">Conway\'s Game of Life. Touch to spark new life.</string>
 	<string name="sample_gles_300_name">GLES 300</string>
 	<string name="sample_gles_300_rationale">Use GLES version 3.00</string>
+	<string name="sample_multipass_name">Multi-pass</string>
+	<string name="sample_multipass_rationale">Multi-pass rendering with buffers A and B (ShaderToy-style)</string>
 	<string name="sample_gravity_name">Gravity sensor</string>
 	<string name="sample_gravity_rationale">How to use the gravity uniform</string>
 	<string name="sample_orientation_name">Orientation</string>

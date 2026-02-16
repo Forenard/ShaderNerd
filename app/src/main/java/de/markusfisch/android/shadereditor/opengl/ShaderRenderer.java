@@ -106,6 +106,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	public static final String UNIFORM_MIC_AMPLITUDE = "micAmplitude";
 	public static final String UNIFORM_TOUCH = "touch";
 	public static final String UNIFORM_TOUCH_START = "touchStart";
+	public static final String UNIFORM_BUFFER_PREFIX = "buffer";
 
 	private static final int[] TEXTURE_UNITS = {
 			GLES20.GL_TEXTURE0,
@@ -194,6 +195,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			"^.*layout\\s*\\([^)]*\\)\\s*uniform\\s+coherent\\s+" +
 					"uimage2D\\s+computeTex(Back)?\\s*\\[\\s*3\\s*\\]\\s*;.*$",
 			Pattern.MULTILINE);
+	// Multi-pass: detect void main<N>() where N is any non-negative integer
+	private static final Pattern PATTERN_MAIN_N = Pattern.compile(
+			"void\\s+main(\\d+)\\s*\\(\\s*\\)");
+	private static final int MAX_BUFFER_COUNT = 64;
 	private static final String IMAGE_PRECISION_PREPEND =
 			"precision highp float;\n" +
 					"precision highp int;\n" +
@@ -257,6 +262,24 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private final int[] fb = new int[]{0, 0};
 	private final int[] tx = new int[]{0, 0};
 	private final int[] imageTx = new int[6];
+	// Multi-pass: FBO and textures for numbered buffers (each with front/back)
+	private final int[] bufferFb = new int[MAX_BUFFER_COUNT * 2];
+	private final int[] bufferTx = new int[MAX_BUFFER_COUNT * 2];
+	private final int[] bufferProgram = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferPositionLoc = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferTimeLoc = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferResolutionLoc = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferFrameNumLoc = new int[MAX_BUFFER_COUNT];
+	private final int[][] bufferInputLocs = new int[MAX_BUFFER_COUNT][MAX_BUFFER_COUNT];
+	private final int[] bufferBackbufferLoc = new int[MAX_BUFFER_COUNT]; // self-reference
+	private final int[] bufferFrontTarget = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferBackTarget = new int[MAX_BUFFER_COUNT];
+	private final int[] activeBufferNumbers = new int[MAX_BUFFER_COUNT]; // sorted numerically
+	private final boolean[] bufferUseImageOps = new boolean[MAX_BUFFER_COUNT];
+	private final int[] mainBufferLocs = new int[MAX_BUFFER_COUNT]; // uniform locs in main program
+	private int activeBufferCount;
+	private int createdBufferCount;
+	private boolean mainPassUseImageOps;
 	private int clearComputeProgram = 0;
 	private final int[] textureLocs = new int[32];
 	private final int[] textureTargets = new int[32];
@@ -398,6 +421,62 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		fTimeMax = parseFTime(source);
 		resetFps();
 		fragmentShader = indexTextureNames(source);
+		// Detect multi-pass functions
+		detectBufferPasses(source);
+	}
+
+	private void detectBufferPasses(String source) {
+		activeBufferCount = 0;
+		Matcher m = PATTERN_MAIN_N.matcher(source);
+		ArrayList<Integer> numbers = new ArrayList<>();
+		while (m.find()) {
+			String group = m.group(1);
+			if (group != null) {
+				int n = Integer.parseInt(group);
+				if (!numbers.contains(n)) {
+					numbers.add(n);
+				}
+			}
+		}
+		Collections.sort(numbers);
+		for (int n : numbers) {
+			if (activeBufferCount >= MAX_BUFFER_COUNT) {
+				break;
+			}
+			activeBufferNumbers[activeBufferCount++] = n;
+		}
+	}
+
+	private boolean hasActiveBuffers() {
+		return activeBufferCount > 0;
+	}
+
+	private boolean anyBufferUsesImageOps() {
+		for (int i = 0; i < activeBufferCount; i++) {
+			if (bufferUseImageOps[i]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static String getBufferUniformName(int bufferNumber) {
+		return UNIFORM_BUFFER_PREFIX + bufferNumber;
+	}
+
+	/**
+	 * Generate shader source for a specific buffer pass by renaming main<N>() to main().
+	 */
+	private String generateBufferShader(String source, int bufferNumber) {
+		// Replace void main() with void _mainImage() to avoid conflict
+		String modified = source.replaceAll(
+				"void\\s+main\\s*\\(\\s*\\)",
+				"void _mainImage()");
+		// Replace void main<N>() with void main()
+		modified = modified.replaceAll(
+				"void\\s+main" + bufferNumber + "\\s*\\(\\s*\\)",
+				"void main()");
+		return modified;
 	}
 
 	public void setQuality(float quality) {
@@ -450,8 +529,11 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			surfaceProgram = 0;
 		}
 
-		// GL context destroyed all programs; just reset the handle.
+		// GL context destroyed all programs; just reset the handles.
 		clearComputeProgram = 0;
+		for (int i = 0; i < createdBufferCount; i++) {
+			bufferProgram[i] = 0;
+		}
 
 		if (program != 0) {
 			// Don't glDeleteProgram(program).
@@ -650,6 +732,15 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			}
 		}
 
+		// Render buffer passes first (A → B → C → D) for multi-pass shaders
+		if (hasActiveBuffers()) {
+			renderBufferPasses(delta);
+			// Restore main program after buffer passes
+			GLES20.glUseProgram(program);
+			GLES20.glVertexAttribPointer(positionLoc, 2, GLES20.GL_BYTE,
+					false, 0, vertexBuffer);
+		}
+
 		// First draw custom shader in framebuffer.
 		GLES20.glViewport(0, 0, (int) resolution[0], (int) resolution[1]);
 
@@ -678,11 +769,25 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 					textureIds[i]);
 		}
 
-		// Bind image textures for compute operations.
-		if (useImageOps) {
+		// Bind buffer textures for multi-pass shaders (use front target = current frame result)
+		if (hasActiveBuffers()) {
+			for (int i = 0; i < activeBufferCount; i++) {
+				if (mainBufferLocs[i] > -1) {
+					int frontIdx = i * 2 + bufferFrontTarget[i];
+					textureBinder.bind(mainBufferLocs[i], GLES20.GL_TEXTURE_2D,
+							bufferTx[frontIdx]);
+				}
+			}
+		}
+
+		// Bind image textures for compute operations (only if main pass uses them)
+		if (mainPassUseImageOps) {
 			int writeSet = frontTarget % 2;
 			int readSet = backTarget % 2;
-			clearImageTextures(writeSet);
+			// Only clear if no buffer passes use imageOps (they clear at start)
+			if (!anyBufferUsesImageOps()) {
+				clearImageTextures(writeSet);
+			}
 			for (int i = 0; i < 3; i++) {
 				GLES31.glBindImageTexture(i,
 						imageTx[writeSet * 3 + i], 0, false, 0,
@@ -702,7 +807,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
 		// Ensure image writes are visible before next frame reads.
-		if (useImageOps) {
+		if (mainPassUseImageOps) {
 			GLES31.glMemoryBarrier(
 					GLES31.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
@@ -737,6 +842,11 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		frontTarget = backTarget;
 		backTarget = t;
 
+		// Swap buffer targets for multi-pass shaders
+		if (hasActiveBuffers()) {
+			swapBufferTargets();
+		}
+
 		captureThumbnail();
 
 		if (onRendererListener != null) {
@@ -754,6 +864,107 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 				captureThumbnail = false;
 				thumbnailLock.notifyAll();
 			}
+		}
+	}
+
+	/**
+	 * Render all active buffer passes (A → B → C → D) before the main pass.
+	 * Each buffer reads from previous buffers and writes to its own FBO.
+	 */
+	private void renderBufferPasses(float delta) {
+		int width = (int) resolution[0];
+		int height = (int) resolution[1];
+
+		// Clear image textures once at the beginning of buffer passes
+		// Only clear if any buffer pass or main pass uses imageOps
+		boolean needsImageOps = anyBufferUsesImageOps() || mainPassUseImageOps;
+		if (needsImageOps) {
+			int writeSet = frontTarget % 2;
+			clearImageTextures(writeSet);
+		}
+
+		for (int i = 0; i < activeBufferCount; i++) {
+			if (bufferProgram[i] == 0) {
+				continue;
+			}
+
+			int prog = bufferProgram[i];
+			GLES20.glUseProgram(prog);
+			GLES20.glVertexAttribPointer(bufferPositionLoc[i], 2, GLES20.GL_BYTE,
+					false, 0, vertexBuffer);
+
+			// Set basic uniforms
+			if (bufferTimeLoc[i] > -1) {
+				GLES20.glUniform1f(bufferTimeLoc[i], delta);
+			}
+			if (bufferResolutionLoc[i] > -1) {
+				GLES20.glUniform2fv(bufferResolutionLoc[i], 1, resolution, 0);
+			}
+			if (bufferFrameNumLoc[i] > -1) {
+				GLES20.glUniform1i(bufferFrameNumLoc[i], frameNum);
+			}
+
+			// Reset texture binder for this pass
+			textureBinder.reset();
+
+			// Bind self-reference (previous frame of this buffer)
+			if (bufferBackbufferLoc[i] > -1) {
+				int backIdx = i * 2 + bufferBackTarget[i];
+				textureBinder.bind(bufferBackbufferLoc[i], GLES20.GL_TEXTURE_2D,
+						bufferTx[backIdx]);
+			}
+
+			// Bind other buffers (previous frame results)
+			for (int j = 0; j < activeBufferCount; j++) {
+				if (j != i && bufferInputLocs[i][j] > -1) {
+					int srcIdx = j * 2 + bufferBackTarget[j];
+					textureBinder.bind(bufferInputLocs[i][j], GLES20.GL_TEXTURE_2D,
+							bufferTx[srcIdx]);
+				}
+			}
+
+			// Bind image textures only if this pass uses imageOps
+			if (bufferUseImageOps[i]) {
+				int writeSet = frontTarget % 2;
+				int readSet = backTarget % 2;
+				for (int k = 0; k < 3; k++) {
+					GLES31.glBindImageTexture(k,
+							imageTx[writeSet * 3 + k], 0, false, 0,
+							GLES31.GL_READ_WRITE, GLES31.GL_R32UI);
+				}
+				for (int k = 0; k < 3; k++) {
+					GLES31.glBindImageTexture(3 + k,
+							imageTx[readSet * 3 + k], 0, false, 0,
+							GLES31.GL_READ_ONLY, GLES31.GL_R32UI);
+				}
+			}
+
+			// Render to this buffer's front FBO
+			int frontIdx = i * 2 + bufferFrontTarget[i];
+			GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bufferFb[frontIdx]);
+			GLES20.glViewport(0, 0, width, height);
+			GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+			// Memory barrier only if this pass uses imageOps
+			if (bufferUseImageOps[i]) {
+				GLES31.glMemoryBarrier(
+						GLES31.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			}
+
+			// Generate mipmap for the rendered texture
+			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bufferTx[frontIdx]);
+			GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+		}
+	}
+
+	/**
+	 * Swap front/back targets for all active buffers after frame completion.
+	 */
+	private void swapBufferTargets() {
+		for (int i = 0; i < activeBufferCount; i++) {
+			int t = bufferFrontTarget[i];
+			bufferFrontTarget[i] = bufferBackTarget[i];
+			bufferBackTarget[i] = t;
 		}
 	}
 
@@ -886,6 +1097,17 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			return;
 		}
 
+		// Load buffer programs for multi-pass rendering
+		if (hasActiveBuffers()) {
+			if (!loadBufferPrograms()) {
+				return;
+			}
+		}
+
+		// Check if main pass uses imageOps (only matters if useImageOps is true)
+		mainPassUseImageOps = useImageOps &&
+				PATTERN_IMAGE_OPS.matcher(fragmentShader).find();
+
 		// Prepend image declarations for shaders using imageLoad/imageStore
 		String fragmentSource = useImageOps
 				? prependImageDeclarations(fragmentShader)
@@ -902,6 +1124,32 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		// If both programs compiled successfully, log an empty list of errors
 		submitErrors(Collections.emptyList());
+	}
+
+	private boolean loadBufferPrograms() {
+		String vertexShader = getVertexShader();
+		for (int i = 0; i < activeBufferCount; i++) {
+			int bufferNumber = activeBufferNumbers[i];
+			String bufferSource = generateBufferShader(fragmentShader, bufferNumber);
+			bufferUseImageOps[i] = useImageOps &&
+					PATTERN_IMAGE_OPS.matcher(bufferSource).find();
+			if (useImageOps) {
+				bufferSource = prependImageDeclarations(bufferSource);
+			}
+			bufferProgram[i] = Program.loadProgram(vertexShader, bufferSource);
+			if (bufferProgram[i] == 0) {
+				List<ShaderError> errors = Program.getInfoLog();
+				String bufferName = "Buffer " + bufferNumber + ": ";
+				List<ShaderError> prefixedErrors = new ArrayList<>();
+				for (ShaderError e : errors) {
+					prefixedErrors.add(ShaderError.createWithLine(
+							e.getLine(), bufferName + e.getMessage()));
+				}
+				submitErrors(prefixedErrors);
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private String prependImageDeclarations(String source) {
@@ -1032,11 +1280,51 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 					program,
 					textureNames.get(i));
 		}
+
+		// Multi-pass: get buffer uniform locations for main program
+		for (int i = 0; i < activeBufferCount; i++) {
+			String name = getBufferUniformName(activeBufferNumbers[i]);
+			mainBufferLocs[i] = GLES20.glGetUniformLocation(program, name);
+		}
+
+		// Index locations for buffer programs
+		indexBufferLocations();
+	}
+
+	private void indexBufferLocations() {
+		for (int i = 0; i < activeBufferCount; i++) {
+			if (bufferProgram[i] == 0) {
+				continue;
+			}
+			int prog = bufferProgram[i];
+			bufferPositionLoc[i] = GLES20.glGetAttribLocation(prog, UNIFORM_POSITION);
+			bufferTimeLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_TIME);
+			bufferResolutionLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_RESOLUTION);
+			bufferFrameNumLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_FRAME_NUMBER);
+			// Self-reference (previous frame of this buffer)
+			String selfName = getBufferUniformName(activeBufferNumbers[i]);
+			bufferBackbufferLoc[i] = GLES20.glGetUniformLocation(prog, selfName);
+			// Other buffers
+			for (int j = 0; j < activeBufferCount; j++) {
+				if (j != i) {
+					String otherName = getBufferUniformName(activeBufferNumbers[j]);
+					bufferInputLocs[i][j] = GLES20.glGetUniformLocation(prog, otherName);
+				} else {
+					bufferInputLocs[i][j] = -1;
+				}
+			}
+		}
 	}
 
 	private void enableAttribArrays() {
 		GLES20.glEnableVertexAttribArray(surfacePositionLoc);
 		GLES20.glEnableVertexAttribArray(positionLoc);
+		// Enable attrib arrays for buffer programs
+		for (int i = 0; i < activeBufferCount; i++) {
+			if (bufferPositionLoc[i] >= 0) {
+				GLES20.glEnableVertexAttribArray(bufferPositionLoc[i]);
+			}
+		}
 	}
 
 	private void registerListeners() {
@@ -1317,6 +1605,26 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		fb[0] = 0;
 		deleteImageTextures();
+		deleteBufferTargets();
+	}
+
+	private void deleteBufferTargets() {
+		if (createdBufferCount == 0) {
+			return;
+		}
+		GLES20.glDeleteFramebuffers(createdBufferCount * 2, bufferFb, 0);
+		GLES20.glDeleteTextures(createdBufferCount * 2, bufferTx, 0);
+		for (int i = 0; i < createdBufferCount * 2; i++) {
+			bufferFb[i] = 0;
+			bufferTx[i] = 0;
+		}
+		for (int i = 0; i < createdBufferCount; i++) {
+			if (bufferProgram[i] != 0) {
+				GLES20.glDeleteProgram(bufferProgram[i]);
+				bufferProgram[i] = 0;
+			}
+		}
+		createdBufferCount = 0;
 	}
 
 	private void createImageTextures(int width, int height) {
@@ -1425,9 +1733,76 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		createTarget(frontTarget, width, height, backBufferTextureParams);
 		createTarget(backTarget, width, height, backBufferTextureParams);
 
+		// Create buffer targets for multi-pass rendering
+		if (hasActiveBuffers()) {
+			createBufferTargets(width, height);
+		}
+
 		// unbind textures that were bound in createTarget()
 		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
 		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+	}
+
+	private void createBufferTargets(int width, int height) {
+		createdBufferCount = activeBufferCount;
+		GLES20.glGenFramebuffers(createdBufferCount * 2, bufferFb, 0);
+		GLES20.glGenTextures(createdBufferCount * 2, bufferTx, 0);
+
+		for (int i = 0; i < createdBufferCount; i++) {
+			int frontIdx = i * 2;
+			int backIdx = i * 2 + 1;
+			createBufferTarget(frontIdx, width, height);
+			createBufferTarget(backIdx, width, height);
+			bufferFrontTarget[i] = 0;
+			bufferBackTarget[i] = 1;
+		}
+	}
+
+	private void createBufferTarget(int idx, int width, int height) {
+		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bufferTx[idx]);
+
+		if (useFloatBackBuffer) {
+			GLES20.glTexImage2D(
+					GLES20.GL_TEXTURE_2D,
+					0,
+					GLES30.GL_RGBA32F,
+					width,
+					height,
+					0,
+					GLES20.GL_RGBA,
+					GLES20.GL_FLOAT,
+					null);
+		} else {
+			GLES20.glTexImage2D(
+					GLES20.GL_TEXTURE_2D,
+					0,
+					GLES20.GL_RGBA,
+					width,
+					height,
+					0,
+					GLES20.GL_RGBA,
+					GLES20.GL_UNSIGNED_BYTE,
+					null);
+		}
+
+		// Set texture parameters
+		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+				GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR);
+		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+				GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+				GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+				GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+		GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+
+		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bufferFb[idx]);
+		GLES20.glFramebufferTexture2D(
+				GLES20.GL_FRAMEBUFFER,
+				GLES20.GL_COLOR_ATTACHMENT0,
+				GLES20.GL_TEXTURE_2D,
+				bufferTx[idx],
+				0);
 	}
 
 	private void createTarget(

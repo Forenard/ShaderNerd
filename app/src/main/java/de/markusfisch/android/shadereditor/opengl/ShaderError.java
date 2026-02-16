@@ -29,6 +29,10 @@ public class ShaderError {
 		return new ShaderError(0, -1, message);
 	}
 
+	public static ShaderError createWithLine(int line, @NonNull String message) {
+		return new ShaderError(0, line, message);
+	}
+
 	public boolean hasLine() {
 		return errorLine > 0;
 	}

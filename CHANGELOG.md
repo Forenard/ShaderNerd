@@ -1,6 +1,7 @@
 # Change Log
 
 ## 2.37.0
+* Add multi-pass rendering: define `void main0()`, `void main1()`, … for up to 64 buffer passes (executed in numeric order), access via `uniform sampler2D buffer0`, `buffer1`, …
 * Upgrade backbuffer to float32 (RGBA32F) with linear filtering and per-frame mipmap generation on GLES 3.0+ devices (falls back to RGBA8 on GLES 2.0)
 * Add compute feedback support: `computeTex[3]` / `computeTexBack[3]` R32UI image textures for `imageLoad`, `imageStore`, `imageAtomicAdd` etc. on GLES 3.1+ (Bonzomatic-Compute compatible)
 * Add fullscreen mode: toolbar button hides all UI (toolbar, status bar) to show shader output only

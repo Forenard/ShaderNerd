@@ -70,6 +70,10 @@ public class PresetUniformAdapter extends BaseAdapter implements Filterable {
 						ShaderRenderer.UNIFORM_BATTERY,
 						context.getString(R.string.battery_level)),
 				new Uniform(
+						"sampler2D",
+						ShaderRenderer.UNIFORM_BUFFER_PREFIX + "0",
+						context.getString(R.string.buffer_n)),
+				new Uniform(
 						"vec2",
 						ShaderRenderer.UNIFORM_CAMERA_ADDENT,
 						context.getString(R.string.camera_addent),
