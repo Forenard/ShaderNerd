@@ -34,6 +34,12 @@
 	<string name="shader_disabled_after_crash">Предыдущий шейдер вызвал сбой Shader Nerd и был закомментирован.</string>
 
 	<!-- EditorFragment -->
+	<string name="tab_visual">Визуал</string>
+	<string name="tab_audio">Аудио</string>
+	<string name="audio_play">Пуск</string>
+	<string name="audio_pause">Пауза</string>
+	<string name="audio_bpm">BPM</string>
+	<string name="audio_bpm_hint">140</string>
 	<string name="details">Детали</string>
 
 	<!-- PreferencesFragment -->

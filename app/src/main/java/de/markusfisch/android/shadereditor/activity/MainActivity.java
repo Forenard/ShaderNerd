@@ -28,6 +28,7 @@ import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.activity.managers.ExtraKeysManager;
 import de.markusfisch.android.shadereditor.activity.managers.MainMenuManager;
 import de.markusfisch.android.shadereditor.activity.managers.NavigationManager;
+import de.markusfisch.android.shadereditor.activity.managers.AudioShaderPlayerManager;
 import de.markusfisch.android.shadereditor.activity.managers.ShaderListManager;
 import de.markusfisch.android.shadereditor.activity.managers.ShaderManager;
 import de.markusfisch.android.shadereditor.activity.managers.ShaderViewManager;
@@ -54,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 	private ShaderManager shaderManager;
 	private ShaderListManager shaderListManager;
 	private ShaderViewManager shaderViewManager;
+	private AudioShaderPlayerManager audioShaderPlayerManager;
 	private NavigationManager navigationManager;
 	private DataSource dataSource;
 	private boolean isInitialLoad = false;
@@ -81,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
 				findViewById(R.id.preview),
 				findViewById(R.id.quality),
 				createShaderViewListener());
+		audioShaderPlayerManager = new AudioShaderPlayerManager(this);
+		shaderViewManager.setTimeSource(audioShaderPlayerManager.getTimeSource());
 		ExtraKeysManager extraKeysManager = new ExtraKeysManager(this,
 				findViewById(android.R.id.content),
 				editorFragment::insert);
@@ -95,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
 		shaderManager = new ShaderManager(this,
 				editorFragment,
 				shaderViewManager,
+				audioShaderPlayerManager,
 				shaderListManager,
 				uiManager,
 				dataSource,
@@ -136,16 +141,30 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 		editorFragment.setOnEditPausedListener(text -> {
-			if (ShaderEditorApp.preferences.doesRunOnChange()) {
+			if (editorFragment.isVisualTabSelected() &&
+					ShaderEditorApp.preferences.doesRunOnChange()) {
 				if (editorFragment.hasErrors()) {
 					editorFragment.clearError();
 					editorFragment.highlightErrors();
 				}
-				shaderViewManager.setFragmentShader(text);
+				shaderViewManager.setFragmentShader(editorFragment.getFragmentShaderText());
+			} else {
+				audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
+				updatePlaybackUiMode();
 			}
 		});
-		editorFragment.setOnTextModifiedListener(() -> shaderManager.setModified(true));
+		editorFragment.setOnTextModifiedListener(() -> {
+			shaderManager.setModified(true);
+			if (!editorFragment.isVisualTabSelected()) {
+				audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
+				updatePlaybackUiMode();
+			}
+		});
 		editorFragment.setCodeCompletionListener(extraKeysManager::setCompletions);
+		editorFragment.setOnTabChangedListener(tab -> findViewById(R.id.show_errors)
+				.setVisibility(tab == EditorFragment.Tab.VISUAL && editorFragment.hasErrors()
+						? View.VISIBLE
+						: View.GONE));
 	}
 
 	@Override
@@ -171,7 +190,8 @@ public class MainActivity extends AppCompatActivity {
 	@Override
 	protected void onResume() {
 		super.onResume();
-		uiManager.updateUiToPreferences();
+		updatePlaybackUiMode();
+		audioShaderPlayerManager.refreshUi();
 		shaderListManager.loadShadersAsync();
 		shaderViewManager.onResume();
 	}
@@ -182,6 +202,7 @@ public class MainActivity extends AppCompatActivity {
 		if (ShaderEditorApp.preferences.autoSave()) {
 			shaderManager.saveShader();
 		}
+		audioShaderPlayerManager.onPause();
 		super.onPause();
 		shaderViewManager.onPause();
 	}
@@ -190,6 +211,9 @@ public class MainActivity extends AppCompatActivity {
 	protected void onDestroy() {
 		if (shaderListManager != null) {
 			shaderListManager.destroy();
+		}
+		if (audioShaderPlayerManager != null) {
+			audioShaderPlayerManager.onDestroy();
 		}
 		super.onDestroy();
 	}
@@ -418,7 +442,7 @@ public class MainActivity extends AppCompatActivity {
 
 			@Override
 			public void onShareShader() {
-				navigationManager.shareShader(editorFragment.getText());
+				navigationManager.shareShader(editorFragment.getFragmentShaderText());
 			}
 
 			@Override
@@ -503,18 +527,29 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	private void runShader() {
-		String src = editorFragment.getText();
+		String src = editorFragment.getFragmentShaderText();
+		audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
+		updatePlaybackUiMode();
 		editorFragment.clearError();
 		if (ShaderEditorApp.preferences.doesSaveOnRun()) {
 			PreviewActivity.renderStatus.reset();
 			shaderManager.saveShader();
 		}
-		if (ShaderEditorApp.preferences.doesRunInBackground()) {
+		if (audioShaderPlayerManager.hasAudioShader()) {
+			audioShaderPlayerManager.playFromStart();
+		}
+		if (ShaderEditorApp.preferences.doesRunInBackground() ||
+				audioShaderPlayerManager.hasAudioShader()) {
 			shaderViewManager.setFragmentShader(src);
 		} else {
 			navigationManager.showPreview(src, shaderManager.getQuality(),
 					shaderManager.previewShaderLauncher);
 		}
+	}
+
+	private void updatePlaybackUiMode() {
+		boolean hasAudioShader = audioShaderPlayerManager.hasAudioShader();
+		uiManager.updateUiToPreferences(hasAudioShader, hasAudioShader);
 	}
 
 	private void recoverFromCrashIfNeeded() {

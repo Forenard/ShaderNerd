@@ -15,6 +15,7 @@ import de.markusfisch.android.shadereditor.view.UndoRedo;
 public class ShaderEditorApp extends Application {
 	public static final Preferences preferences = new Preferences();
 	public static final UndoRedo.EditHistory editHistory = new UndoRedo.EditHistory();
+	public static final UndoRedo.EditHistory audioEditHistory = new UndoRedo.EditHistory();
 
 	private static final BatteryLevelReceiver batteryLevelReceiver = new BatteryLevelReceiver();
 

@@ -60,6 +60,10 @@ public class ShaderView extends GLSurfaceView {
 		return renderer;
 	}
 
+	public void setTimeSource(ShaderRenderer.TimeSource timeSource) {
+		renderer.setTimeSource(timeSource);
+	}
+
 	private void init(Context context, int renderMode) {
 		renderer = new ShaderRenderer(context);
 

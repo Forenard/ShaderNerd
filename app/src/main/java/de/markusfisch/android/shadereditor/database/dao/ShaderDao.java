@@ -40,7 +40,7 @@ public class ShaderDao {
 	@Nullable
 	public DataRecords.Shader getShader(long id) {
 		String query =
-				"SELECT " + DatabaseContract.ShaderColumns._ID + "," + DatabaseContract.ShaderColumns.FRAGMENT_SHADER + "," + DatabaseContract.ShaderColumns.NAME + "," +
+				"SELECT " + DatabaseContract.ShaderColumns._ID + "," + DatabaseContract.ShaderColumns.FRAGMENT_SHADER + "," + DatabaseContract.ShaderColumns.AUDIO_SHADER + "," + DatabaseContract.ShaderColumns.NAME + "," +
 						DatabaseContract.ShaderColumns.MODIFIED + "," + DatabaseContract.ShaderColumns.QUALITY + " FROM " + DatabaseContract.ShaderColumns.TABLE_NAME + " WHERE " + DatabaseContract.ShaderColumns._ID + " = ?";
 
 		SQLiteDatabase db = dbHelper.getReadableDatabase();
@@ -50,6 +50,8 @@ public class ShaderDao {
 						CursorHelpers.getLong(cursor, DatabaseContract.ShaderColumns._ID),
 						CursorHelpers.getString(cursor,
 								DatabaseContract.ShaderColumns.FRAGMENT_SHADER),
+						CursorHelpers.getString(cursor,
+								DatabaseContract.ShaderColumns.AUDIO_SHADER),
 						CursorHelpers.getString(cursor, DatabaseContract.ShaderColumns.NAME),
 						CursorHelpers.getString(cursor, DatabaseContract.ShaderColumns.MODIFIED),
 						CursorHelpers.getFloat(cursor, DatabaseContract.ShaderColumns.QUALITY));
@@ -85,7 +87,7 @@ public class ShaderDao {
 	@Nullable
 	public DataRecords.Shader getRandomShader() {
 		String query =
-				"SELECT " + DatabaseContract.ShaderColumns._ID + "," + DatabaseContract.ShaderColumns.FRAGMENT_SHADER + "," + DatabaseContract.ShaderColumns.NAME + "," +
+				"SELECT " + DatabaseContract.ShaderColumns._ID + "," + DatabaseContract.ShaderColumns.FRAGMENT_SHADER + "," + DatabaseContract.ShaderColumns.AUDIO_SHADER + "," + DatabaseContract.ShaderColumns.NAME + "," +
 						DatabaseContract.ShaderColumns.MODIFIED + "," + DatabaseContract.ShaderColumns.QUALITY + " FROM " + DatabaseContract.ShaderColumns.TABLE_NAME +
 						" ORDER BY RANDOM() LIMIT 1";
 
@@ -96,6 +98,8 @@ public class ShaderDao {
 						CursorHelpers.getLong(cursor, DatabaseContract.ShaderColumns._ID),
 						CursorHelpers.getString(cursor,
 								DatabaseContract.ShaderColumns.FRAGMENT_SHADER),
+						CursorHelpers.getString(cursor,
+								DatabaseContract.ShaderColumns.AUDIO_SHADER),
 						CursorHelpers.getString(cursor, DatabaseContract.ShaderColumns.NAME),
 						CursorHelpers.getString(cursor, DatabaseContract.ShaderColumns.MODIFIED),
 						CursorHelpers.getFloat(cursor, DatabaseContract.ShaderColumns.QUALITY));
@@ -157,18 +161,32 @@ public class ShaderDao {
 
 	public long insertShader(@NonNull String shader, @Nullable String name,
 			@Nullable byte[] thumbnail, float quality) {
+		return insertShader(shader, null, name, thumbnail, quality);
+	}
+
+	public long insertShader(@NonNull String shader, @Nullable String audioShader,
+			@Nullable String name, @Nullable byte[] thumbnail, float quality) {
 		SQLiteDatabase db = dbHelper.getWritableDatabase();
-		return insertShader(db, shader, name, thumbnail, quality);
+		String now = currentTime();
+		return insertShader(db, shader, audioShader, name, now, now, thumbnail, quality);
 	}
 
 	public void updateShader(long id, @Nullable String shader, @Nullable byte[] thumbnail,
 			float quality) {
+		updateShader(id, shader, null, thumbnail, quality, false);
+	}
+
+	public void updateShader(long id, @Nullable String shader, @Nullable String audioShader,
+			@Nullable byte[] thumbnail, float quality, boolean updateAudioShader) {
 		SQLiteDatabase db = dbHelper.getWritableDatabase();
 		var cv = new ContentValues();
 		cv.put(DatabaseContract.ShaderColumns.MODIFIED, currentTime());
 		cv.put(DatabaseContract.ShaderColumns.QUALITY, quality);
 		if (shader != null) {
 			cv.put(DatabaseContract.ShaderColumns.FRAGMENT_SHADER, shader);
+		}
+		if (updateAudioShader) {
+			cv.put(DatabaseContract.ShaderColumns.AUDIO_SHADER, audioShader);
 		}
 		if (thumbnail != null) {
 			cv.put(DatabaseContract.ShaderColumns.THUMB, thumbnail);
@@ -214,6 +232,7 @@ public class ShaderDao {
 	public static long insertShader(
 			@NonNull SQLiteDatabase db,
 			@NonNull String shader,
+			@Nullable String audioShader,
 			@Nullable String name,
 			@NonNull String created,
 			@NonNull String modified,
@@ -221,6 +240,7 @@ public class ShaderDao {
 			float quality) {
 		ContentValues cv = new ContentValues();
 		cv.put(DatabaseContract.ShaderColumns.FRAGMENT_SHADER, shader);
+		cv.put(DatabaseContract.ShaderColumns.AUDIO_SHADER, audioShader);
 		cv.put(DatabaseContract.ShaderColumns.THUMB, thumbnail);
 		cv.put(DatabaseContract.ShaderColumns.NAME, name);
 		cv.put(DatabaseContract.ShaderColumns.CREATED, created);
@@ -237,6 +257,10 @@ public class ShaderDao {
 		db.execSQL("ALTER TABLE " + DatabaseContract.ShaderColumns.TABLE_NAME + " ADD COLUMN " + DatabaseContract.ShaderColumns.QUALITY + " REAL;");
 		db.execSQL("UPDATE " + DatabaseContract.ShaderColumns.TABLE_NAME + " SET " + DatabaseContract.ShaderColumns.QUALITY + " = " +
 				"1;");
+	}
+
+	private static void addAudioShaderColumn(@NonNull SQLiteDatabase db) {
+		db.execSQL("ALTER TABLE " + DatabaseContract.ShaderColumns.TABLE_NAME + " ADD COLUMN " + DatabaseContract.ShaderColumns.AUDIO_SHADER + " TEXT;");
 	}
 	// endregion
 
@@ -264,6 +288,9 @@ public class ShaderDao {
 				if (oldVersion < 5) {
 					addShaderNames(db);
 				}
+				if (oldVersion < 7) {
+					addAudioShaderColumn(db);
+				}
 			}
 
 			@Override
@@ -277,6 +304,7 @@ public class ShaderDao {
 						DatabaseContract.ShaderColumns._ID + " INTEGER PRIMARY KEY " +
 						"AUTOINCREMENT," +
 						DatabaseContract.ShaderColumns.FRAGMENT_SHADER + " TEXT NOT NULL," +
+						DatabaseContract.ShaderColumns.AUDIO_SHADER + " TEXT," +
 						DatabaseContract.ShaderColumns.THUMB + " BLOB," +
 						DatabaseContract.ShaderColumns.NAME + " TEXT," +
 						DatabaseContract.ShaderColumns.CREATED + " DATETIME," +
@@ -317,6 +345,8 @@ public class ShaderDao {
 			}
 			int shaderIndex =
 					cursor.getColumnIndex(DatabaseContract.ShaderColumns.FRAGMENT_SHADER);
+			int audioShaderIndex =
+					cursor.getColumnIndex(DatabaseContract.ShaderColumns.AUDIO_SHADER);
 			int thumbIndex = cursor.getColumnIndex(DatabaseContract.ShaderColumns.THUMB);
 			int nameIndex = cursor.getColumnIndex(DatabaseContract.ShaderColumns.NAME);
 			int qualityIndex = cursor.getColumnIndex(DatabaseContract.ShaderColumns.QUALITY);
@@ -331,8 +361,12 @@ public class ShaderDao {
 							shaderExists(dst, createdDate, modifiedDate)) {
 						continue;
 					}
+					String audioShader = audioShaderIndex >= 0
+							? cursor.getString(audioShaderIndex)
+							: null;
 					long shaderId = insertShader(dst,
 							cursor.getString(shaderIndex),
+							audioShader,
 							cursor.getString(nameIndex),
 							createdDate,
 							modifiedDate,

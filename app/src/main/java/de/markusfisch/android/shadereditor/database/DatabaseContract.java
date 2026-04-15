@@ -22,6 +22,7 @@ public final class DatabaseContract {
 	public interface ShaderColumns extends BaseColumns {
 		String TABLE_NAME = "shaders";
 		String FRAGMENT_SHADER = "shader";
+		String AUDIO_SHADER = "audio_shader";
 		String THUMB = "thumb";
 		String NAME = "name";
 		String CREATED = "created";

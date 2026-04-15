@@ -1,5 +1,10 @@
 # Change Log
 
+## Unreleased
+* Add dual-source shaders with separate Visual/Audio editor tabs, per-tab undo history, and `shaders.audio_shader` persistence in schema version 7
+* Add experimental GLSL audio playback via `AudioShaderPlayer`, and sync preview `time` to the audio playback clock while audio is active
+* Replace the temporary audio transport bar by reusing the existing toolbar play button, adding a pause button and direct BPM input, and removing rewind / nudge / BPM step buttons
+
 ## 2.37.0
 * Add multi-pass rendering: define `void main0()`, `void main1()`, … for up to 64 buffer passes (executed in numeric order), access via `uniform sampler2D buffer0`, `buffer1`, …
 * Upgrade backbuffer to float32 (RGBA32F) with linear filtering and per-frame mipmap generation on GLES 3.0+ devices (falls back to RGBA8 on GLES 2.0)

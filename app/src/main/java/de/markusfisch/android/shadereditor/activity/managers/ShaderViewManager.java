@@ -63,6 +63,10 @@ public class ShaderViewManager {
 		shaderView.setFragmentShader(src, quality);
 	}
 
+	public void setTimeSource(@Nullable ShaderRenderer.TimeSource timeSource) {
+		shaderView.setTimeSource(timeSource);
+	}
+
 	public void setVisibility(boolean visible) {
 		shaderView.setVisibility(visible ? View.VISIBLE : View.GONE);
 	}

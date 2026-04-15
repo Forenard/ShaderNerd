@@ -66,6 +66,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		void onFramesPerSecond(int fps);
 	}
 
+	public interface TimeSource {
+		float getTimeSeconds();
+	}
+
 	public static final String UNIFORM_BACKBUFFER = "backbuffer";
 	public static final String UNIFORM_BATTERY = "battery";
 	public static final String UNIFORM_CAMERA_ADDENT = "cameraAddent";
@@ -388,6 +392,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private volatile float sum;
 	private volatile float samples;
 	private volatile int lastFps;
+	@Nullable
+	private volatile TimeSource timeSource;
 
 	public ShaderRenderer(Context context) {
 		this.context = context;
@@ -485,6 +491,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 	public void setOnRendererListener(OnRendererListener listener) {
 		onRendererListener = listener;
+	}
+
+	public void setTimeSource(@Nullable TimeSource timeSource) {
+		this.timeSource = timeSource;
 	}
 
 	@Override
@@ -590,7 +600,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 				false, 0, vertexBuffer);
 
 		final long now = System.nanoTime();
-		float delta = (now - startTime) / NS_PER_SECOND;
+		float delta = getTime(now);
 
 		if (timeLoc > -1) {
 			GLES20.glUniform1f(timeLoc, delta);
@@ -955,6 +965,17 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bufferTx[frontIdx]);
 			GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
 		}
+	}
+
+	private float getTime(long now) {
+		TimeSource source = timeSource;
+		if (source != null) {
+			float syncedTime = source.getTimeSeconds();
+			if (!Float.isNaN(syncedTime)) {
+				return syncedTime;
+			}
+		}
+		return (now - startTime) / NS_PER_SECOND;
 	}
 
 	/**

@@ -26,7 +26,7 @@ public class UndoRedo {
 		private int position = 0;
 		private int maxHistorySize = -1;
 
-		private void clear() {
+		public void clear() {
 			position = 0;
 			history.clear();
 		}
@@ -110,7 +110,7 @@ public class UndoRedo {
 
 	private final EditTextChangeListener changeListener =
 			new EditTextChangeListener();
-	private final EditHistory editHistory;
+	private EditHistory editHistory;
 	private final TextView textView;
 
 	/**
@@ -153,6 +153,10 @@ public class UndoRedo {
 
 	public void clearHistory() {
 		editHistory.clear();
+	}
+
+	public void setEditHistory(EditHistory editHistory) {
+		this.editHistory = editHistory;
 	}
 
 	public boolean canUndo() {

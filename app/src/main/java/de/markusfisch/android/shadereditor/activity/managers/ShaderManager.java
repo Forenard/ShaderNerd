@@ -36,6 +36,7 @@ public class ShaderManager {
 	private final AppCompatActivity activity;
 	private final EditorFragment editorFragment;
 	private final ShaderViewManager shaderViewManager;
+	private final AudioShaderPlayerManager audioShaderPlayerManager;
 	private final ShaderListManager shaderListManager;
 	private final UIManager uiManager;
 	private final DataSource dataSource;
@@ -47,6 +48,7 @@ public class ShaderManager {
 	public ShaderManager(@NonNull AppCompatActivity activity,
 			EditorFragment editorFragment,
 			ShaderViewManager shaderViewManager,
+			AudioShaderPlayerManager audioShaderPlayerManager,
 			ShaderListManager shaderListManager,
 			UIManager uiManager,
 			DataSource dataSource,
@@ -54,6 +56,7 @@ public class ShaderManager {
 		this.activity = activity;
 		this.editorFragment = editorFragment;
 		this.shaderViewManager = shaderViewManager;
+		this.audioShaderPlayerManager = audioShaderPlayerManager;
 		this.shaderListManager = shaderListManager;
 		this.uiManager = uiManager;
 		this.dataSource = dataSource;
@@ -154,14 +157,20 @@ public class ShaderManager {
 
 		if (shader == null) {
 			selectedShaderId = NO_SHADER;
-			editorFragment.setText(activity.getString(
-					R.string.new_shader_template));
+			editorFragment.setShaderTexts(
+					activity.getString(R.string.new_shader_template),
+					null);
+			audioShaderPlayerManager.setAudioShader(null);
+			uiManager.updateUiToPreferences(false, false);
 			uiManager.setToolbarTitle(activity.getString(R.string.add_shader));
 			quality = 1f;
 		} else {
 			selectedShaderId = id;
 			ShaderEditorApp.preferences.setLastOpenedShader(id);
-			editorFragment.setText(shader.fragmentShader());
+			editorFragment.setShaderTexts(shader.fragmentShader(), shader.audioShader());
+			audioShaderPlayerManager.setAudioShader(shader.audioShader());
+			uiManager.updateUiToPreferences(shader.audioShader() != null,
+					shader.audioShader() != null);
 			uiManager.setToolbarTitle(shader.getTitle());
 			quality = shader.quality();
 		}
@@ -174,7 +183,7 @@ public class ShaderManager {
 
 		shaderListManager.setSelectedShaderId(selectedShaderId);
 		shaderViewManager.setQuality(quality);
-		shaderViewManager.setFragmentShader(editorFragment.getText());
+		shaderViewManager.setFragmentShader(editorFragment.getFragmentShaderText());
 		setModified(false);
 	}
 
@@ -187,8 +196,11 @@ public class ShaderManager {
 			return;
 		}
 
-		String src = editorFragment.getText();
-		if (src.trim().isEmpty() && selectedShaderId <= 0) {
+		String src = editorFragment.getFragmentShaderText();
+		String audioSrc = normalizeAudioShader(editorFragment.getAudioShaderText());
+		if (src.trim().isEmpty() &&
+				audioSrc == null &&
+				selectedShaderId <= 0) {
 			return;
 		}
 
@@ -196,10 +208,10 @@ public class ShaderManager {
 
 		if (selectedShaderId > 0) {
 			dataSource.shader.updateShader(
-					selectedShaderId, src, thumbnail, quality);
+					selectedShaderId, src, audioSrc, thumbnail, quality, true);
 		} else {
 			selectedShaderId = dataSource.shader.insertShader(
-					src, null, thumbnail, quality);
+					src, audioSrc, null, thumbnail, quality);
 			shaderListManager.setSelectedShaderId(selectedShaderId);
 		}
 
@@ -242,7 +254,10 @@ public class ShaderManager {
 			PreviewActivity.renderStatus.reset();
 			intent.setAction(null);
 			selectShader(NO_SHADER);
-			editorFragment.setText(sb.toString());
+			editorFragment.setCurrentTab(EditorFragment.Tab.VISUAL);
+			editorFragment.setShaderTexts(sb.toString(), null);
+			audioShaderPlayerManager.setAudioShader(null);
+			uiManager.updateUiToPreferences(false, false);
 			setModified(true);
 		} catch (IOException e) {
 			Toast.makeText(activity, R.string.unsuitable_text,
@@ -258,6 +273,7 @@ public class ShaderManager {
 		var thumbnail = dataSource.shader.getThumbnail(shaderId);
 		return dataSource.shader.insertShader(
 				shader.fragmentShader(),
+				normalizeAudioShader(shader.audioShader()),
 				null,
 				thumbnail,
 				shader.quality());
@@ -268,5 +284,13 @@ public class ShaderManager {
 		if (shaderId == selectedShaderId) {
 			selectedShaderId = NO_SHADER;
 		}
+	}
+
+	@Nullable
+	private static String normalizeAudioShader(@Nullable String audioShader) {
+		if (audioShader == null) {
+			return null;
+		}
+		return audioShader.trim().isEmpty() ? null : audioShader;
 	}
 }

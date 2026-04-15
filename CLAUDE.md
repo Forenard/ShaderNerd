@@ -9,6 +9,15 @@
 
 CLAUDE.md の肥大化を避けるため、計画と履歴はこれらのファイルに分離する。
 
+## Audio Status (2026-04-16)
+
+- `Database` is now schema version 7 and persists `shaders.audio_shader` end-to-end.
+- `EditorFragment` now exposes separate Visual/Audio tabs with separate undo histories.
+- `AudioShaderPlayerManager` owns the toolbar audio controls: `run_code` (play from start), `pause_audio`, and `audio_bpm_input`.
+- `ShaderRenderer` can accept a `TimeSource`, and `MainActivity` uses that to keep visual `time` synced with audio playback.
+- The old temporary transport-bar plan is obsolete; do not reintroduce rewind / nudge / BPM +/- controls without a new product decision.
+- When an audio shader exists, `MainActivity` keeps the embedded preview path active so toolbar playback still works for users who normally prefer `PreviewActivity`.
+
 ## Project Overview
 
 Shader Nerd - GLSLシェーダーをAndroid上で作成・編集・ライブ壁紙として使用できるアプリ。
@@ -159,11 +168,11 @@ app/src/main/java/de/markusfisch/android/shadereditor/
 - `DataSource` → DAO束。取得: `Database.getInstance(context).getDataSource()`
 - **生の `SQLiteDatabase` オブジェクトをDAOスコープ外でキャッシュしないこと**
 
-### Database Schema (shaders.db, version 6)
+### Database Schema (shaders.db, version 7)
 
 | テーブル | カラム |
 |---------|--------|
-| **shaders** | `_id`, `shader` (GLSLソース), `thumb` (BLOB), `name`, `created`, `modified`, `quality` |
+| **shaders** | `_id`, `shader` (GLSLソース), `audio_shader` (optional audio GLSL), `thumb` (BLOB), `name`, `created`, `modified`, `quality` |
 | **textures** | `_id`, `name`, `width`, `height`, `ratio`, `thumb` (BLOB), `matrix` |
 
 - `ShaderDao`: シェーダーCRUD、サムネイル(PNGブロブ)、品質乗数。`res/raw/*.glsl` からのシード挿入。名前は任意 (未設定時は最終更新日時をフォールバック表示)

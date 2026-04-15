@@ -49,6 +49,7 @@ This document captures how the app is structured today so you can change it conf
 - `MainActivity` (`activity/MainActivity.java:1`) hosts everything. It instantiates:
   - `EditorFragment` (code editing).
   - `ShaderViewManager` (GLSurfaceView preview + quality spinner).
+  - `AudioShaderPlayerManager` (toolbar play/pause/BPM controls for audio shaders, plus audio playback clock/time sync).
   - `ShaderManager` (load/save shaders, handle `ACTION_SEND`/`ACTION_VIEW` intents, duplicate/delete, persist thumbnails).
   - `ShaderListManager` (ListView + background loader for saved shaders).
   - `UIManager` (toolbar buttons, drawer, toggling editor visibility, extra keys).
@@ -58,9 +59,9 @@ This document captures how the app is structured today so you can change it conf
 - State flow: the editor notifies `ShaderManager` when text changes; `ShaderManager` updates `ShaderViewManager` and `ShaderListManager`; UI state (title/subtitle, show-errors pill) is adjusted via `UIManager`.
 
 ### 4.3 Editor stack
-- `EditorFragment` (`fragment/EditorFragment.java:1`) wires the custom `ShaderEditor` widget to undo/redo, completion listeners, and preference-driven appearance (font, ligatures, line numbers, update delay).
+- `EditorFragment` (`fragment/EditorFragment.java:1`) wires the custom `ShaderEditor` widget to undo/redo, completion listeners, and preference-driven appearance (font, ligatures, line numbers, update delay). It now hosts separate Visual/Audio tabs and preserves distinct source/edit state for each tab.
 - `ShaderEditor` (`widget/ShaderEditor.java:1`) extends `LineNumberEditText`. Responsibilities: syntax highlighting (`highlighter/*`), debounce compile requests, auto-insert braces, convert ShaderToy snippets, completion entry, lint error highlighting. Highlights/errors are recalculated on a worker thread (`TokenListUpdater`).
-- `UndoRedo` (`view/UndoRedo.java:1`) tracks a shared, process-wide edit history so the editor can preserve undo stacks between fragment recreations (history object is kept in `ShaderEditorApp.editHistory`).
+- `UndoRedo` (`view/UndoRedo.java:1`) tracks shared, process-wide edit history so the editor can preserve undo stacks between fragment recreations. Visual and audio source histories are kept separately in `ShaderEditorApp`.
 - `ExtraKeysManager` (`activity/managers/ExtraKeysManager.java:1`) shows tab/brace buttons and completion chips, auto-hiding when the IME is closed if preferences demand.
 - Compile errors from the GL renderer are visualized by `ErrorListModal` and `ErrorAdapter` (`widget/ErrorListModal.java:1`, `adapter/ErrorAdapter.java:1`).
 
@@ -69,10 +70,11 @@ This document captures how the app is structured today so you can change it conf
 - `ShaderRenderer` (`opengl/ShaderRenderer.java:1`) is the core engine:
   - Parses shader code for `sampler2D`, `samplerCube`, and `samplerExternalOES` uniforms, manages backbuffer FBOs, thumbnails, and resolution scaling via the "quality" multiplier.
   - Exposes dozens of uniforms (time, resolution, multi-touch, sensors, battery, day/night, notification counts/time, camera frames, mic amplitude, wallpaper offsets, etc.). Sensor listeners live in `hardware/*` (e.g., `AccelerometerListener`, `CameraListener`, `MicInputListener`, etc.) and are registered only when the shader actually references the relevant uniform.
+  - Accepts an optional `TimeSource` so the preview can lock visual `time` to audio playback.
   - Taps Android services: `NotificationService` for notification uniforms, `BatteryLevelReceiver` for power state, media volume via `AudioManager`, wallpaper offsets, etc.
   - Uses `TextureBinder`, `TextureParameters`, and `BackBufferParameters` to manage imported textures/backbuffer configuration.
   - Publishes FPS + compile info logs back to UI threads via `ShaderRenderer.OnRendererListener`.
-- `ShaderViewManager` (`activity/managers/ShaderViewManager.java:1`) coordinates `ShaderView` lifecycle with the activity, exposes the quality spinner, and pushes renderer events to `MainActivity`.
+- `ShaderViewManager` (`activity/managers/ShaderViewManager.java:1`) coordinates `ShaderView` lifecycle with the activity, exposes the quality spinner, can inject a `ShaderRenderer.TimeSource`, and pushes renderer events to `MainActivity`.
 - `PreviewActivity` (`activity/PreviewActivity.java:1`) runs shaders fullscreen when the user prefers manual runs. Its static `RenderStatus` object transports FPS/errors/thumbnail data back to `MainActivity`.
 
 ### 4.5 Wallpaper & services
@@ -83,17 +85,17 @@ This document captures how the app is structured today so you can change it conf
 ---
 
 ## 5. Persistence & data layer
-- `Database` (`database/Database.java:1`) is a singleton façade around `SQLiteOpenHelper` with schema version 5. It builds tables via `DataSource.buildSchema()` and exposes DAOs.
+- `Database` (`database/Database.java:1`) is a singleton façade around `SQLiteOpenHelper` with schema version 7. It builds tables via `DataSource.buildSchema()` and exposes DAOs.
 - `DataSource` (`database/DataSource.java:1`) bundles the DAOs and is retrieved everywhere via `Database.getInstance(context).getDataSource()`. Never cache raw `SQLiteDatabase` objects outside DAO scope.
 - `ShaderDao` (`database/dao/ShaderDao.java:1`):
-  - CRUD for shaders, thumbnails (PNG blobs), and quality multiplier.
+  - CRUD for shaders, optional `audio_shader` source, thumbnails (PNG blobs), and quality multiplier.
   - `insertShaderFromResource` seeds new shaders from `res/raw/*.glsl`.
   - Column definitions live in `DatabaseContract`.
   - Names are optional; UI falls back to the last-modified timestamp (`DataRecords.ShaderInfo.getTitle()`).
 - `TextureDao` (`database/dao/TextureDao.java:1`):
   - Stores user-imported 2D textures and cube maps (ratio differentiates them).
   - Saves both thumbnails (PNG) and full-resolution PNG matrices. Dimensions feed sampler defaults.
-- `DataRecords` (`database/DataRecords.java:1`) holds immutable records used throughout UI/DAOs.
+- `DataRecords` (`database/DataRecords.java:1`) holds immutable records used throughout UI/DAOs, including the optional audio shader source on shader records.
 - Import/export:
   - `ImportExportAsFiles` (`io/ImportExportAsFiles.java:1`) reads/writes `.glsl` files under `Downloads/ShaderNerd`. Uses legacy storage APIs on Android < Q; guarded by runtime permissions from `PreferencesFragment`.
   - `DatabaseImporter` / `DatabaseExporter` support SAF-based SQLite exports/imports.

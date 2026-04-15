@@ -1,15 +1,41 @@
 <!-- Use a ScrollView around EditText to have a padding around the text
 	contents. If we make EditText scrollable, contents will be cut off
 	at the specified padding but before the visible border. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto"
 	xmlns:tools="http://schemas.android.com/tools"
-	android:id="@+id/editor_container"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
 	android:background="@color/background_editor"
-	android:fillViewport="true"
+	android:orientation="vertical"
 	tools:ignore="Overdraw">
+	<com.google.android.material.tabs.TabLayout
+		android:id="@+id/editor_tabs"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:background="@color/background_editor"
+		app:tabIndicatorColor="@color/editor_text"
+		app:tabIndicatorFullWidth="false"
+		app:tabSelectedTextColor="@color/editor_text"
+		app:tabTextColor="@color/editor_line_numbers">
+
+		<com.google.android.material.tabs.TabItem
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/tab_visual" />
+
+		<com.google.android.material.tabs.TabItem
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/tab_audio" />
+	</com.google.android.material.tabs.TabLayout>
+
+	<ScrollView
+		android:id="@+id/editor_container"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1"
+		android:fillViewport="true">
 	<!-- Hardcode gravity to left because GLSL source code is always
 		aligned to the left. -->
 	<HorizontalScrollView
@@ -38,4 +64,5 @@
 			app:showLineNumbers="true"
 			tools:ignore="RtlHardcoded" />
 	</HorizontalScrollView>
-</ScrollView>
+	</ScrollView>
+</LinearLayout>

@@ -82,8 +82,13 @@ public class UIManager {
 	}
 
 	public void updateUiToPreferences() {
+		updateUiToPreferences(false, false);
+	}
+
+	public void updateUiToPreferences(boolean forceBackgroundPreview,
+			boolean forceShowRunCode) {
 		boolean runInBackground =
-				ShaderEditorApp.preferences.doesRunInBackground();
+				ShaderEditorApp.preferences.doesRunInBackground() || forceBackgroundPreview;
 		shaderViewManager.setVisibility(runInBackground);
 		toolbar.findViewById(R.id.toggle_code).setVisibility(
 				runInBackground ? View.VISIBLE : View.GONE);
@@ -96,7 +101,7 @@ public class UIManager {
 			setFullscreen(false);
 		}
 		toolbar.findViewById(R.id.run_code).setVisibility(
-				!ShaderEditorApp.preferences.doesRunOnChange()
+				forceShowRunCode || !ShaderEditorApp.preferences.doesRunOnChange()
 						? View.VISIBLE
 						: View.GONE);
 		extraKeysManager.updateVisibility();
