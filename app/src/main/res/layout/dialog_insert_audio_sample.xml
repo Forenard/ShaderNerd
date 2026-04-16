@@ -1,0 +1,24 @@
+<LinearLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical"
+	android:padding="16dp">
+
+	<EditText
+		android:id="@+id/audio_sample_insert_name"
+		style="@android:style/Widget.EditText"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:hint="@string/audio_sample_insert_name_hint"
+		android:importantForAutofill="no"
+		android:inputType="text" />
+
+	<CheckBox
+		android:id="@+id/audio_sample_trim_silence"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="12dp"
+		android:checked="true"
+		android:text="@string/audio_sample_trim_silence" />
+</LinearLayout>

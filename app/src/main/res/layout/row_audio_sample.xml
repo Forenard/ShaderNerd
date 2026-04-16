@@ -1,0 +1,60 @@
+<FrameLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content">
+
+	<de.markusfisch.android.shadereditor.widget.AudioSampleWaveformView
+		android:id="@+id/audio_sample_waveform"
+		android:layout_width="match_parent"
+		android:layout_height="88dp" />
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:gravity="center_vertical"
+		android:minHeight="88dp"
+		android:orientation="horizontal"
+		android:padding="16dp">
+
+		<LinearLayout
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_weight="1"
+			android:orientation="vertical">
+
+			<TextView
+				style="@style/ListItem"
+				android:id="@+id/audio_sample_name"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content" />
+
+			<TextView
+				style="@style/ListItemSecondary"
+				android:id="@+id/audio_sample_uniform"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="2dp" />
+		</LinearLayout>
+
+		<LinearLayout
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="12dp"
+			android:orientation="vertical">
+
+			<Button
+				android:id="@+id/audio_sample_preview"
+				style="@style/BarButton"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/audio_sample_preview" />
+
+			<Button
+				android:id="@+id/audio_sample_insert"
+				style="@style/BarButton"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/audio_sample_insert" />
+		</LinearLayout>
+	</LinearLayout>
+</FrameLayout>

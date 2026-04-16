@@ -220,9 +220,13 @@ public class ShaderEditor extends LineNumberEditText {
 		if (e == null || e.length() == 0) {
 			return;
 		}
+		Layout layout = getLayout();
+		if (layout == null) {
+			post(this::updateErrorHighlighting);
+			return;
+		}
 		for (ShaderError shaderError : shaderErrors) {
 			int line = shaderError.getLine() - 1;
-			Layout layout = getLayout();
 			if (line < 0 || line >= layout.getLineCount()) {
 				continue;
 			}
@@ -300,6 +304,9 @@ public class ShaderEditor extends LineNumberEditText {
 			return;
 		}
 		Layout layout = getLayout();
+		if (layout == null || lineNumber > layout.getLineCount()) {
+			return;
+		}
 		int lineStart = layout.getLineStart(lineNumber - 1);
 		int lineEnd = layout.getLineEnd(lineNumber - 1);
 		if (getSelectionStart() >= lineStart &&

@@ -19,6 +19,7 @@ import java.util.Objects;
 
 import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.activity.AddUniformActivity;
+import de.markusfisch.android.shadereditor.activity.AudioSamplesActivity;
 import de.markusfisch.android.shadereditor.activity.LoadSampleActivity;
 import de.markusfisch.android.shadereditor.activity.PreviewActivity;
 import de.markusfisch.android.shadereditor.app.ShaderEditorApp;
@@ -28,6 +29,7 @@ import de.markusfisch.android.shadereditor.fragment.EditorFragment;
 public class ShaderManager {
 	public final ActivityResultLauncher<Intent> addUniformLauncher;
 	public final ActivityResultLauncher<Intent> loadSampleLauncher;
+	public final ActivityResultLauncher<Intent> browseAudioSamplesLauncher;
 	public final ActivityResultLauncher<Intent> previewShaderLauncher;
 
 	private static final String SELECTED_SHADER_ID = "selected_shader_id";
@@ -83,11 +85,34 @@ public class ShaderManager {
 										LoadSampleActivity.NAME)),
 								result.getData().getIntExtra(LoadSampleActivity.RESOURCE_ID,
 										R.raw.new_shader),
+								result.getData().getIntExtra(
+										LoadSampleActivity.AUDIO_RESOURCE_ID, 0),
 								result.getData().getIntExtra(LoadSampleActivity.THUMBNAIL_ID,
 										R.drawable.thumbnail_new_shader),
 								result.getData().getFloatExtra(LoadSampleActivity.QUALITY, 1f));
 						selectShader(newId);
 					}
+				});
+
+		browseAudioSamplesLauncher = activity.registerForActivityResult(
+				new ActivityResultContracts.StartActivityForResult(), result -> {
+					if (result.getResultCode() != Activity.RESULT_OK ||
+							result.getData() == null) {
+						return;
+					}
+					String statement = result.getData().getStringExtra(
+							AudioSamplesActivity.STATEMENT);
+					if (statement == null || statement.isEmpty()) {
+						return;
+					}
+					editorFragment.setCurrentTab(EditorFragment.Tab.AUDIO);
+					editorFragment.insert(statement);
+					audioShaderPlayerManager.setEditedAudioShader(
+							editorFragment.getAudioShaderText());
+					uiManager.updateUiToPreferences(
+							audioShaderPlayerManager.hasAudioShader(),
+							audioShaderPlayerManager.shouldShowPlaybackUi());
+					setModified(true);
 				});
 
 		previewShaderLauncher =
@@ -161,7 +186,8 @@ public class ShaderManager {
 					activity.getString(R.string.new_shader_template),
 					null);
 			audioShaderPlayerManager.setAudioShader(null);
-			uiManager.updateUiToPreferences(false, false);
+			uiManager.updateUiToPreferences(false,
+					audioShaderPlayerManager.shouldShowPlaybackUi());
 			uiManager.setToolbarTitle(activity.getString(R.string.add_shader));
 			quality = 1f;
 		} else {
@@ -170,7 +196,7 @@ public class ShaderManager {
 			editorFragment.setShaderTexts(shader.fragmentShader(), shader.audioShader());
 			audioShaderPlayerManager.setAudioShader(shader.audioShader());
 			uiManager.updateUiToPreferences(shader.audioShader() != null,
-					shader.audioShader() != null);
+					audioShaderPlayerManager.shouldShowPlaybackUi());
 			uiManager.setToolbarTitle(shader.getTitle());
 			quality = shader.quality();
 		}

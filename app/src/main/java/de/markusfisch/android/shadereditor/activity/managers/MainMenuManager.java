@@ -50,6 +50,8 @@ public class MainMenuManager {
 
 		void onLoadSample();
 
+		void onBrowseAudioSamples();
+
 		void onShowSettings();
 
 		void onShowFaq();
@@ -102,6 +104,7 @@ public class MainMenuManager {
 		setClickListener(R.id.update_wallpaper, shaderActions::onUpdateWallpaper);
 		setClickListener(R.id.add_uniform, navigationActions::onAddUniform);
 		setClickListener(R.id.load_sample, navigationActions::onLoadSample);
+		setClickListener(R.id.browse_audio_samples, navigationActions::onBrowseAudioSamples);
 		setClickListener(R.id.settings, navigationActions::onShowSettings);
 		setClickListener(R.id.faq, navigationActions::onShowFaq);
 

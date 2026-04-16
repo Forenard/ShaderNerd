@@ -28,6 +28,7 @@ public class UIManager {
 	private final View mainLayout;
 	private final View mainCoordinator;
 	private final View navbar;
+	private final View editorControls;
 	private boolean isFullscreen = false;
 	private int savedMainLayoutPaddingBottom = 0;
 
@@ -48,6 +49,7 @@ public class UIManager {
 		mainLayout = activity.findViewById(R.id.main_layout);
 		mainCoordinator = activity.findViewById(R.id.main_coordinator);
 		navbar = activity.findViewById(R.id.navbar);
+		editorControls = activity.findViewById(R.id.editor_controls_container);
 		drawerLayout = activity.findViewById(R.id.drawer_layout);
 		drawerToggle = new ActionBarDrawerToggle(
 				activity, drawerLayout, toolbar,
@@ -104,6 +106,9 @@ public class UIManager {
 				forceShowRunCode || !ShaderEditorApp.preferences.doesRunOnChange()
 						? View.VISIBLE
 						: View.GONE);
+		editorControls.setVisibility(editorFragment.isCodeVisible()
+				? View.VISIBLE
+				: View.GONE);
 		extraKeysManager.updateVisibility();
 		editorFragment.setShowLineNumbers(
 				ShaderEditorApp.preferences.showLineNumbers());
@@ -112,9 +117,11 @@ public class UIManager {
 	}
 
 	public void toggleCodeVisibility() {
-		boolean isVisible = editorFragment.toggleCode();
-		drawerLayout.setTouchThru(isVisible);
-		extraKeysManager.setVisible(!isVisible &&
+		boolean wasVisible = editorFragment.toggleCode();
+		boolean isVisible = !wasVisible;
+		drawerLayout.setTouchThru(wasVisible);
+		editorControls.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+		extraKeysManager.setVisible(isVisible &&
 				ShaderEditorApp.preferences.showExtraKeys());
 	}
 

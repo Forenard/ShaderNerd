@@ -2,6 +2,7 @@
 agp = "8.13.2"
 appcompat = "1.7.1"
 camerax = "1.5.2"
+documentfile = "1.1.0"
 preference = "1.2.1"
 material = "1.13.0"
 
@@ -10,6 +11,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 

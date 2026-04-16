@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 
 import de.markusfisch.android.shadereditor.R;
 import de.markusfisch.android.shadereditor.activity.AddUniformActivity;
+import de.markusfisch.android.shadereditor.activity.AudioSamplesActivity;
 import de.markusfisch.android.shadereditor.activity.LoadSampleActivity;
 import de.markusfisch.android.shadereditor.activity.PreferencesActivity;
 import de.markusfisch.android.shadereditor.activity.PreviewActivity;
@@ -31,6 +32,10 @@ public class NavigationManager {
 
 	public void goToLoadSample(@NonNull ActivityResultLauncher<Intent> launcher) {
 		launcher.launch(new Intent(activity, LoadSampleActivity.class));
+	}
+
+	public void goToAudioSamples(@NonNull ActivityResultLauncher<Intent> launcher) {
+		launcher.launch(new Intent(activity, AudioSamplesActivity.class));
 	}
 
 	public void goToPreferences() {

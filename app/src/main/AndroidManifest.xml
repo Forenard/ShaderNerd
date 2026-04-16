@@ -136,6 +136,10 @@
 			android:label="@string/load_sample"
 			android:exported="false"/>
 		<activity
+			android:name=".activity.AudioSamplesActivity"
+			android:label="@string/audio_samples"
+			android:exported="false"/>
+		<activity
 			android:name=".activity.TextureViewActivity"
 			android:label="@string/view_texture"
 			android:exported="false"/>

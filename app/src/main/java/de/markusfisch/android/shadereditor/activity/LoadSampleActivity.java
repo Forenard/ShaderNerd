@@ -11,6 +11,7 @@ import de.markusfisch.android.shadereditor.fragment.LoadSampleFragment;
 public class LoadSampleActivity extends AbstractContentActivity {
 	public static final String NAME = "name";
 	public static final String RESOURCE_ID = "resource_id";
+	public static final String AUDIO_RESOURCE_ID = "audio_resource_id";
 	public static final String THUMBNAIL_ID = "thumbnail_id";
 	public static final String QUALITY = "quality";
 
@@ -18,11 +19,13 @@ public class LoadSampleActivity extends AbstractContentActivity {
 			Activity activity,
 			String name,
 			int resId,
+			int audioResId,
 			int thumbId,
 			float quality) {
 		Bundle bundle = new Bundle();
 		bundle.putString(NAME, name);
 		bundle.putInt(RESOURCE_ID, resId);
+		bundle.putInt(AUDIO_RESOURCE_ID, audioResId);
 		bundle.putInt(THUMBNAIL_ID, thumbId);
 		bundle.putFloat(QUALITY, quality);
 

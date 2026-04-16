@@ -64,6 +64,11 @@ public class ShaderView extends GLSurfaceView {
 		renderer.setTimeSource(timeSource);
 	}
 
+	public void setPlaybackUniformProvider(
+			ShaderRenderer.PlaybackUniformProvider playbackUniformProvider) {
+		renderer.setPlaybackUniformProvider(playbackUniformProvider);
+	}
+
 	private void init(Context context, int renderMode) {
 		renderer = new ShaderRenderer(context);
 

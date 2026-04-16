@@ -52,6 +52,17 @@
 		app:iconSize="24dp" />
 
 	<Button
+		android:id="@+id/toggle_audio_faders"
+		style="@style/IconButton"
+		android:layout_width="48dp"
+		android:layout_height="48dp"
+		android:layout_gravity="end"
+		android:layout_marginEnd="4dp"
+		android:visibility="gone"
+		app:icon="@drawable/ic_bottom_panel_close"
+		app:iconSize="24dp" />
+
+	<Button
 		android:id="@+id/run_code"
 		style="@style/IconButton"
 		android:layout_width="48dp"
@@ -60,39 +71,6 @@
 		android:layout_marginEnd="4dp"
 		app:icon="@drawable/ic_play_arrow"
 		app:iconSize="24dp" />
-
-	<LinearLayout
-		android:id="@+id/audio_bpm_container"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:layout_gravity="end|center_vertical"
-		android:layout_marginEnd="8dp"
-		android:gravity="center_vertical"
-		android:orientation="horizontal"
-		android:visibility="gone">
-
-		<EditText
-			android:id="@+id/audio_bpm_input"
-			android:layout_width="56dp"
-			android:layout_height="40dp"
-			android:ems="4"
-			android:gravity="center"
-			android:hint="@string/audio_bpm_hint"
-			android:importantForAutofill="no"
-			android:inputType="numberDecimal"
-			android:maxLines="1"
-			android:singleLine="true"
-			android:textColor="@android:color/white"
-			android:textColorHint="#80FFFFFF" />
-
-		<TextView
-			android:id="@+id/audio_bpm_label"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_marginStart="4dp"
-			android:text="@string/audio_bpm"
-			android:textColor="@android:color/white" />
-	</LinearLayout>
 
 	<Button
 		android:id="@+id/show_errors"

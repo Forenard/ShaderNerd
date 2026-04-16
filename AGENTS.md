@@ -115,6 +115,7 @@ This document captures how the app is structured today so you can change it conf
   - `Sampler2dPropertiesFragment`, `CubeMapActivity`, `CubeMapFragment`, and `TextureParametersView`/`BackBufferParametersView` (under `widget/`) finalize sampler metadata.
 - Samples:
   - `LoadSampleActivity` with `LoadSampleFragment` (`activity/LoadSampleActivity.java:1`, `fragment/LoadSampleFragment.java:1`) surfaces sample shaders from `res/raw/sample_*.glsl` via `SamplesAdapter` (`adapter/SamplesAdapter.java:1`). `ShaderManager.loadSampleLauncher` inserts the sample into the DB and selects it.
+  - `AudioSamplesActivity` with `AudioSamplesFragment` (`activity/AudioSamplesActivity.java:1`, `fragment/AudioSamplesFragment.java:1`) lets users pick an audio folder through SAF, browse one directory level at a time across nested subfolders, preview files with cached waveform backdrops, and insert `sample_*` declarations into the current audio shader.
 
 ---
 

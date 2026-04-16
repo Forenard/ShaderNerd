@@ -13,6 +13,7 @@ import de.markusfisch.android.shadereditor.R;
 public class SamplesAdapter extends BaseAdapter {
 	public static final class Sample {
 		public final int resId;
+		public final int audioResId;
 		public final int thumbId;
 		public final float quality;
 		public final String name;
@@ -20,19 +21,22 @@ public class SamplesAdapter extends BaseAdapter {
 
 		private Sample(
 				int resId,
+				int audioResId,
 				int thumbId,
 				String name,
 				String rationale) {
-			this(resId, thumbId, name, rationale, 1f);
+			this(resId, audioResId, thumbId, name, rationale, 1f);
 		}
 
 		private Sample(
 				int resId,
+				int audioResId,
 				int thumbId,
 				String name,
 				String rationale,
 				float quality) {
 			this.resId = resId;
+			this.audioResId = audioResId;
 			this.thumbId = thumbId;
 			this.name = name;
 			this.rationale = rationale;
@@ -45,61 +49,80 @@ public class SamplesAdapter extends BaseAdapter {
 	public SamplesAdapter(Context context) {
 		samples = new Sample[]{
 				new Sample(R.raw.sample_battery,
+						0,
 						R.drawable.thumbnail_battery,
 						context.getString(R.string.sample_battery_name),
 						context.getString(R.string.sample_battery_rationale)),
 				new Sample(R.raw.sample_camera_back,
+						0,
 						R.drawable.thumbnail_camera_back,
 						context.getString(R.string.sample_camera_back_name),
 						context.getString(R.string.sample_camera_back_rationale)),
 				new Sample(R.raw.sample_circles,
+						0,
 						R.drawable.thumbnail_circles,
 						context.getString(R.string.sample_circles_name),
 						context.getString(R.string.sample_circles_rationale)),
+				new Sample(R.raw.sample_audio_test,
+						R.raw.sample_audio_test_audio,
+						R.drawable.thumbnail_default,
+						context.getString(R.string.sample_audio_test_name),
+						context.getString(R.string.sample_audio_test_rationale)),
 				new Sample(R.raw.sample_cloudy_conway,
+						0,
 						R.drawable.thumbnail_cloudy_conway,
 						context.getString(R.string.sample_cloudy_conway_name),
 						context.getString(R.string.sample_cloudy_conway_rationale),
 						.125f),
 				new Sample(R.raw.sample_compute_feedback,
+						0,
 						R.drawable.thumbnail_default,
 						context.getString(R.string.sample_compute_feedback_name),
 						context.getString(R.string.sample_compute_feedback_rationale)),
 				new Sample(R.raw.sample_electric_fade,
+						0,
 						R.drawable.thumbnail_electric_fade,
 						context.getString(R.string.sample_electric_fade_name),
 						context.getString(R.string.sample_electric_fade_rationale),
 						.125f),
 				new Sample(R.raw.sample_game_of_life,
+						0,
 						R.drawable.thumbnail_game_of_life,
 						context.getString(R.string.sample_game_of_life_name),
 						context.getString(R.string.sample_game_of_life_rationale),
 						.125f),
 				new Sample(R.raw.sample_gles_300,
+						0,
 						R.drawable.thumbnail_default,
 						context.getString(R.string.sample_gles_300_name),
 						context.getString(R.string.sample_gles_300_rationale)),
 				new Sample(R.raw.sample_multipass,
+						0,
 						R.drawable.thumbnail_default,
 						context.getString(R.string.sample_multipass_name),
 						context.getString(R.string.sample_multipass_rationale)),
 				new Sample(R.raw.sample_gravity,
+						0,
 						R.drawable.thumbnail_gravity,
 						context.getString(R.string.sample_gravity_name),
 						context.getString(R.string.sample_gravity_rationale)),
 				new Sample(R.raw.sample_orientation,
+						0,
 						R.drawable.thumbnail_orientation,
 						context.getString(R.string.sample_orientation_name),
 						context.getString(R.string.sample_orientation_rationale)),
 				new Sample(R.raw.sample_swirl,
+						0,
 						R.drawable.thumbnail_swirl,
 						context.getString(R.string.sample_swirl_name),
 						context.getString(R.string.sample_swirl_rationale)),
 				new Sample(R.raw.sample_texture,
+						0,
 						R.drawable.thumbnail_texture,
 						context.getString(R.string.sample_texture_name),
 						context.getString(R.string.sample_texture_rationale)),
 				new Sample(R.raw.sample_touch,
+						0,
 						R.drawable.thumbnail_touch,
 						context.getString(R.string.sample_touch_name),
 						context.getString(R.string.sample_touch_rationale)),

@@ -24,6 +24,12 @@ public final class BeatClock {
 		total = (total + deltaSeconds) % MAX_TOTAL;
 	}
 
+	public synchronized boolean advanceAndCheckBarBoundary(double deltaSeconds) {
+		float previousBar = bar();
+		advance(deltaSeconds);
+		return bar() < previousBar;
+	}
+
 	public synchronized void rewind() {
 		sixteenBar = 0.0;
 		total = 0.0;

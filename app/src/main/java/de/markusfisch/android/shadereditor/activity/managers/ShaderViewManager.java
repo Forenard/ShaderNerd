@@ -67,6 +67,15 @@ public class ShaderViewManager {
 		shaderView.setTimeSource(timeSource);
 	}
 
+	public void setPlaybackUniformProvider(
+			@Nullable ShaderRenderer.PlaybackUniformProvider playbackUniformProvider) {
+		shaderView.setPlaybackUniformProvider(playbackUniformProvider);
+	}
+
+	public void resetAnimationTime() {
+		shaderView.queueEvent(shaderView.getRenderer()::resetTime);
+	}
+
 	public void setVisibility(boolean visible) {
 		shaderView.setVisibility(visible ? View.VISIBLE : View.GONE);
 	}

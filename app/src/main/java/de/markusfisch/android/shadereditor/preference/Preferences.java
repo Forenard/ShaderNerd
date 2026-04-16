@@ -44,6 +44,10 @@ public class Preferences {
 	public static final String HIDE_NATIVE_SUGGESTIONS = "hide_native_suggestions";
 	public static final String LAST_OPENED_SHADER = "last_opened_shader";
 	public static final String PENDING_CRASH_SHADER = "pending_crash_shader";
+	public static final String AUDIO_SAMPLE_FOLDER_URI = "audio_sample_folder_uri";
+	private static final String AUDIO_FADER_PREFIX = "audio_fader_";
+	private static final String LEGACY_AUDIO_KNOB_PREFIX = "audio_knob_";
+	private static final String AUDIO_FADERS_VISIBLE = "audio_faders_visible";
 
 	private static final int RUN_AUTO = 1;
 	private static final int RUN_MANUALLY = 2;
@@ -85,6 +89,7 @@ public class Preferences {
 	private boolean showExtraKeys = true;
 	private boolean autoHideExtraKeys = true;
 	private boolean hideNativeSuggestions = true;
+	private String audioSampleFolderUri;
 	private String defaultFont;
 	private long pendingCrashShaderId = 0;
 
@@ -172,6 +177,9 @@ public class Preferences {
 		hideNativeSuggestions = preferences.getBoolean(
 				HIDE_NATIVE_SUGGESTIONS,
 				hideNativeSuggestions);
+		audioSampleFolderUri = preferences.getString(
+				AUDIO_SAMPLE_FOLDER_URI,
+				audioSampleFolderUri);
 		lastOpenedShaderId = preferences.getLong(
 				LAST_OPENED_SHADER,
 				lastOpenedShaderId);
@@ -323,6 +331,40 @@ public class Preferences {
 	public void setLastOpenedShader(long id) {
 		lastOpenedShaderId = id;
 		preferences.edit().putLong(LAST_OPENED_SHADER, id).apply();
+	}
+
+	public float getAudioFaderValue(int index) {
+		if (preferences.contains(AUDIO_FADER_PREFIX + index)) {
+			return preferences.getFloat(AUDIO_FADER_PREFIX + index, 0f);
+		}
+		return preferences.getFloat(LEGACY_AUDIO_KNOB_PREFIX + index, 0f);
+	}
+
+	public void setAudioFaderValue(int index, float value) {
+		preferences.edit()
+				.putFloat(AUDIO_FADER_PREFIX + index, value)
+				.apply();
+	}
+
+	public boolean areAudioFadersVisible() {
+		return preferences.getBoolean(AUDIO_FADERS_VISIBLE, true);
+	}
+
+	public void setAudioFadersVisible(boolean visible) {
+		preferences.edit()
+				.putBoolean(AUDIO_FADERS_VISIBLE, visible)
+				.apply();
+	}
+
+	public String getAudioSampleFolderUri() {
+		return audioSampleFolderUri;
+	}
+
+	public void setAudioSampleFolderUri(String uri) {
+		audioSampleFolderUri = uri;
+		preferences.edit()
+				.putString(AUDIO_SAMPLE_FOLDER_URI, uri)
+				.apply();
 	}
 
 

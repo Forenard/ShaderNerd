@@ -70,8 +70,15 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 		float getTimeSeconds();
 	}
 
+	public interface PlaybackUniformProvider {
+		float getBpm();
+
+		void copyFaders(@NonNull float[] target);
+	}
+
 	public static final String UNIFORM_BACKBUFFER = "backbuffer";
 	public static final String UNIFORM_BATTERY = "battery";
+	public static final String UNIFORM_BPM = "bpm";
 	public static final String UNIFORM_CAMERA_ADDENT = "cameraAddent";
 	public static final String UNIFORM_CAMERA_BACK = "cameraBack";
 	public static final String UNIFORM_CAMERA_FRONT = "cameraFront";
@@ -79,6 +86,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	public static final String UNIFORM_DATE = "date";
 	public static final String UNIFORM_DAYTIME = "daytime";
 	public static final String UNIFORM_FRAME_NUMBER = "frame";
+	public static final String UNIFORM_FADER_PREFIX = "fader";
 	public static final String UNIFORM_FTIME = "ftime";
 	public static final String UNIFORM_GRAVITY = "gravity";
 	public static final String UNIFORM_GYROSCOPE = "gyroscope";
@@ -272,8 +280,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private final int[] bufferProgram = new int[MAX_BUFFER_COUNT];
 	private final int[] bufferPositionLoc = new int[MAX_BUFFER_COUNT];
 	private final int[] bufferTimeLoc = new int[MAX_BUFFER_COUNT];
+	private final int[] bufferBpmLoc = new int[MAX_BUFFER_COUNT];
 	private final int[] bufferResolutionLoc = new int[MAX_BUFFER_COUNT];
 	private final int[] bufferFrameNumLoc = new int[MAX_BUFFER_COUNT];
+	private final int[][] bufferFaderLocs = new int[MAX_BUFFER_COUNT][8];
 	private final int[][] bufferInputLocs = new int[MAX_BUFFER_COUNT][MAX_BUFFER_COUNT];
 	private final int[] bufferBackbufferLoc = new int[MAX_BUFFER_COUNT]; // self-reference
 	private final int[] bufferFrontTarget = new int[MAX_BUFFER_COUNT];
@@ -300,6 +310,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private final float[] rotationMatrix = new float[9];
 	private final float[] inclinationMatrix = new float[9];
 	private final float[] orientation = new float[]{0, 0, 0};
+	private final float[] playbackFaders = new float[8 * 4];
 	private final Context context;
 	private final ByteBuffer vertexBuffer;
 
@@ -327,11 +338,13 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private int program = 0;
 	private int positionLoc;
 	private int timeLoc;
+	private int bpmLoc;
 	private int secondLoc;
 	private int subSecondLoc;
 	private int frameNumLoc;
 	private int fTimeLoc;
 	private int resolutionLoc;
+	private final int[] faderLocs = new int[8];
 	private int touchLoc;
 	private int touchStartLoc;
 	private int mouseLoc;
@@ -394,6 +407,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	private volatile int lastFps;
 	@Nullable
 	private volatile TimeSource timeSource;
+	@Nullable
+	private volatile PlaybackUniformProvider playbackUniformProvider;
 
 	public ShaderRenderer(Context context) {
 		this.context = context;
@@ -495,6 +510,16 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 	public void setTimeSource(@Nullable TimeSource timeSource) {
 		this.timeSource = timeSource;
+	}
+
+	public void setPlaybackUniformProvider(
+			@Nullable PlaybackUniformProvider playbackUniformProvider) {
+		this.playbackUniformProvider = playbackUniformProvider;
+	}
+
+	public void resetTime() {
+		startTime = lastRender = System.nanoTime();
+		frameNum = 0;
 	}
 
 	@Override
@@ -601,10 +626,17 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		final long now = System.nanoTime();
 		float delta = getTime(now);
+		PlaybackUniformProvider playbackProvider = playbackUniformProvider;
+		float playbackBpm = 0f;
+		if (playbackProvider != null) {
+			playbackBpm = playbackProvider.getBpm();
+			playbackProvider.copyFaders(playbackFaders);
+		}
 
 		if (timeLoc > -1) {
 			GLES20.glUniform1f(timeLoc, delta);
 		}
+		bindPlaybackUniforms(bpmLoc, faderLocs, playbackProvider, playbackBpm);
 		if (secondLoc > -1) {
 			GLES20.glUniform1i(secondLoc, (int) delta);
 		}
@@ -744,7 +776,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 
 		// Render buffer passes first (A → B → C → D) for multi-pass shaders
 		if (hasActiveBuffers()) {
-			renderBufferPasses(delta);
+			renderBufferPasses(delta, playbackProvider, playbackBpm);
 			// Restore main program after buffer passes
 			GLES20.glUseProgram(program);
 			GLES20.glVertexAttribPointer(positionLoc, 2, GLES20.GL_BYTE,
@@ -881,7 +913,9 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	 * Render all active buffer passes (A → B → C → D) before the main pass.
 	 * Each buffer reads from previous buffers and writes to its own FBO.
 	 */
-	private void renderBufferPasses(float delta) {
+	private void renderBufferPasses(float delta,
+			@Nullable PlaybackUniformProvider playbackProvider,
+			float playbackBpm) {
 		int width = (int) resolution[0];
 		int height = (int) resolution[1];
 
@@ -907,6 +941,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			if (bufferTimeLoc[i] > -1) {
 				GLES20.glUniform1f(bufferTimeLoc[i], delta);
 			}
+			bindPlaybackUniforms(bufferBpmLoc[i], bufferFaderLocs[i],
+					playbackProvider, playbackBpm);
 			if (bufferResolutionLoc[i] > -1) {
 				GLES20.glUniform2fv(bufferResolutionLoc[i], 1, resolution, 0);
 			}
@@ -964,6 +1000,29 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			// Generate mipmap for the rendered texture
 			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bufferTx[frontIdx]);
 			GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+		}
+	}
+
+	private void bindPlaybackUniforms(int bpmLocation,
+			@NonNull int[] currentFaderLocs,
+			@Nullable PlaybackUniformProvider playbackProvider,
+			float playbackBpm) {
+		if (playbackProvider == null) {
+			return;
+		}
+		if (bpmLocation > -1) {
+			GLES20.glUniform1f(bpmLocation, playbackBpm);
+		}
+		for (int i = 0; i < currentFaderLocs.length; ++i) {
+			int location = currentFaderLocs[i];
+			if (location > -1) {
+				int offset = i * 4;
+				GLES20.glUniform4f(location,
+						playbackFaders[offset],
+						playbackFaders[offset + 1],
+						playbackFaders[offset + 2],
+						playbackFaders[offset + 3]);
+			}
 		}
 	}
 
@@ -1223,6 +1282,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 				program, UNIFORM_POSITION);
 		timeLoc = GLES20.glGetUniformLocation(
 				program, UNIFORM_TIME);
+		bpmLoc = GLES20.glGetUniformLocation(
+				program, UNIFORM_BPM);
 		secondLoc = GLES20.glGetUniformLocation(
 				program, UNIFORM_SECOND);
 		subSecondLoc = GLES20.glGetUniformLocation(
@@ -1233,6 +1294,10 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 				program, UNIFORM_FTIME);
 		resolutionLoc = GLES20.glGetUniformLocation(
 				program, UNIFORM_RESOLUTION);
+		for (int i = 0; i < faderLocs.length; ++i) {
+			faderLocs[i] = GLES20.glGetUniformLocation(
+					program, UNIFORM_FADER_PREFIX + i);
+		}
 		touchLoc = GLES20.glGetUniformLocation(
 				program, UNIFORM_TOUCH);
 		touchStartLoc = GLES20.glGetUniformLocation(
@@ -1320,8 +1385,13 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 			int prog = bufferProgram[i];
 			bufferPositionLoc[i] = GLES20.glGetAttribLocation(prog, UNIFORM_POSITION);
 			bufferTimeLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_TIME);
+			bufferBpmLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_BPM);
 			bufferResolutionLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_RESOLUTION);
 			bufferFrameNumLoc[i] = GLES20.glGetUniformLocation(prog, UNIFORM_FRAME_NUMBER);
+			for (int j = 0; j < bufferFaderLocs[i].length; ++j) {
+				bufferFaderLocs[i][j] = GLES20.glGetUniformLocation(
+						prog, UNIFORM_FADER_PREFIX + j);
+			}
 			// Self-reference (previous frame of this buffer)
 			String selfName = getBufferUniformName(activeBufferNumbers[i]);
 			bufferBackbufferLoc[i] = GLES20.glGetUniformLocation(prog, selfName);

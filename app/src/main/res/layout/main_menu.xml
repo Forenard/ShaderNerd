@@ -115,6 +115,14 @@
 			android:text="@string/load_sample"
 			app:icon="@drawable/ic_quick_reference_all" />
 
+		<Button
+			android:id="@+id/browse_audio_samples"
+			style="@style/MenuItem"
+			android:layout_width="match_parent"
+			android:layout_height="@dimen/menu_item_height"
+			android:text="@string/audio_samples"
+			app:icon="@drawable/ic_play_arrow" />
+
 		<com.google.android.material.divider.MaterialDivider
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"

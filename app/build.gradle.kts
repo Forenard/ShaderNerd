@@ -54,6 +54,7 @@ android {
 dependencies {
 	implementation(libs.androidx.appcompat)
 	implementation(libs.material)
+	implementation(libs.androidx.documentfile)
 	implementation(libs.androidx.preference)
 
 	implementation (libs.androidx.camera.core)

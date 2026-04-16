@@ -4,6 +4,8 @@
 * Add dual-source shaders with separate Visual/Audio editor tabs, per-tab undo history, and `shaders.audio_shader` persistence in schema version 7
 * Add experimental GLSL audio playback via `AudioShaderPlayer`, and sync preview `time` to the audio playback clock while audio is active
 * Replace the temporary audio transport bar by reusing the existing toolbar play button, adding a pause button and direct BPM input, and removing rewind / nudge / BPM step buttons
+* Add eight on-device audio faders wired to `fader0..7`, with persisted values and an updated audio test sample that reacts to fader changes
+* Add hierarchical audio-sample folder browsing with lazy directory loads, background waveform previews plus cached metadata, safer preview playback, custom insert names, trimmed cached one-shot exports, inserted `sample_*` declarations, and on-demand sample texture binding for audio shaders
 
 ## 2.37.0
 * Add multi-pass rendering: define `void main0()`, `void main1()`, … for up to 64 buffer passes (executed in numeric order), access via `uniform sampler2D buffer0`, `buffer1`, …

@@ -139,9 +139,18 @@ public class ShaderDao {
 	public long insertShaderFromResource(@NonNull Context context, @Nullable String name,
 			int sourceId, int thumbId,
 			float quality) {
+		return insertShaderFromResource(context, name, sourceId, 0, thumbId, quality);
+	}
+
+	public long insertShaderFromResource(@NonNull Context context, @Nullable String name,
+			int sourceId, int audioSourceId, int thumbId,
+			float quality) {
 		try {
 			return insertShader(
 					Resources.loadRawResource(context, sourceId),
+					audioSourceId != 0
+							? Resources.loadRawResource(context, audioSourceId)
+							: null,
 					name,
 					Resources.loadBitmapResource(context, thumbId),
 					quality);

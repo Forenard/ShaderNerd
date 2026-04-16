@@ -40,6 +40,10 @@
 	<string name="audio_pause">Пауза</string>
 	<string name="audio_bpm">BPM</string>
 	<string name="audio_bpm_hint">140</string>
+	<string name="audio_show_faders">Show faders</string>
+	<string name="audio_hide_faders">Hide faders</string>
+	<string name="compile_shader">Compile</string>
+	<string name="reset_time">Reset Time</string>
 	<string name="details">деталі</string>
 
 	<!-- PreferencesFragment -->
@@ -251,6 +255,9 @@
 	<string name="sample_touch_name">Дотик</string>
 	<string name="sample_touch_rationale">Як обробляти сенсорне введення</string>
 
+	<string name="sample_audio_test_name">Audio Test Tone</string>
+	<string name="sample_audio_test_rationale">Beat-synced visual plus stereo audio test tone</string>
+
 	<!-- Database -->
 	<string name="default_shader">За замовчуванням</string>
 
@@ -290,4 +297,26 @@
 	<string name="storage_not_writeable">Не вдається записати в базу даних</string>
 	<string name="successfully_exported">Експортовано до Завантаження</string>
 	<string name="successfully_imported">Базу даних імпортовано</string>
+	<string name="audio_samples">Audio samples</string>
+	<string name="audio_sample_folder">Audio sample folder</string>
+	<string name="audio_sample_choose_folder">Choose folder</string>
+	<string name="audio_sample_change_folder">Change folder</string>
+	<string name="audio_sample_clear_folder">Clear</string>
+	<string name="audio_sample_open_folder">Open</string>
+	<string name="audio_sample_up">Up</string>
+	<string name="audio_sample_current_path">Current folder</string>
+	<string name="audio_sample_root">Root</string>
+	<string name="audio_sample_no_folder">No audio sample folder selected</string>
+	<string name="audio_sample_no_files">No subfolders or supported audio files found in this folder</string>
+	<string name="audio_sample_loading">Loading audio samples…</string>
+	<string name="audio_sample_uniform_format">uniform: %1$s</string>
+	<string name="audio_sample_preview">Preview</string>
+	<string name="audio_sample_stop_preview">Stop</string>
+	<string name="audio_sample_insert">Insert</string>
+	<string name="audio_sample_insert_title">Insert audio sample</string>
+	<string name="audio_sample_insert_name_hint">Sampler name</string>
+	<string name="audio_sample_trim_silence">Trim leading and trailing silence</string>
+	<string name="audio_sample_preparing">Preparing audio sample…</string>
+	<string name="audio_sample_preview_failed">Cannot preview this audio file</string>
+	<string name="audio_sample_insert_failed">Cannot insert this audio sample</string>
 </resources>

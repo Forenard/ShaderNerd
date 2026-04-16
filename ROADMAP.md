@@ -2,23 +2,29 @@
 
 ## Update 2026-04-16
 
-- Step 6 is complete.
+- Steps 6-7 are complete.
+- The pre-Apply-Cue sample-browser work is complete.
 - The old transport-bar plan later in this file is obsolete.
 - Current audio UX:
   - The existing toolbar play button (`run_code`) is the audio play button and always restarts from time 0.
   - A new pause button (`pause_audio`) sits next to it.
   - BPM is edited directly through `audio_bpm_input`.
+  - Eight faders (`F0..F7`) sit in a dedicated row and feed `fader0..7`.
   - The temporary transport bar, rewind button, nudge controls, and BPM +/- buttons were removed.
   - Visual `time` is synced from `AudioShaderPlayer` through `ShaderRenderer.TimeSource`.
   - When an audio shader exists, `MainActivity` keeps the embedded preview active so toolbar play/pause keeps working even if the normal run mode would open `PreviewActivity`.
+  - `Audio samples` now browse one folder level at a time instead of flattening the whole tree, so subfolders can be opened directly from the UI.
+  - The browser now lazy-loads folder contents, generates waveform previews in the background, and stores a hidden cache file in the selected audio folder when write access is available.
+  - `Audio samples` can audition files with `MediaPlayer`, show a moving preview playhead over the waveform, and insert `sample_*` / `sample_*_meta` declarations into the audio shader.
+  - Insert now asks for a custom sampler name and, by default, writes a trimmed one-shot friendly cache copy into the hidden audio-sample cache directory before generating the GLSL snippet.
+  - Audio shaders can now bind `uniform sampler2D sample_<name>;` and `uniform vec4 sample_<name>_meta;`, with sample data decoded into RGBA32F textures on demand.
 - Next implementation target:
-  - Step 7: 8 faders wired to `param_knob0..7`
   - Step 8: analyzer UI (vectorscope, oscilloscope, spectrum)
   - Step 9: apply-cue workflow
 - Verification snapshot:
   - `./gradlew.bat assembleDebug` passes.
-  - Earlier device smoke tests confirmed play/pause and visual freeze-on-pause.
-  - The latest APK still needs one more physical-device reinstall because no handset is currently attached to `adb` on this machine.
+  - Previous physical-device reinstall to `a6d53dfd` completed, but after this round's build the device was no longer visible to `adb`, so this round only has build verification.
+  - Previous device smoke tests confirmed play/pause, visual freeze-on-pause, and the new `F0..F7` row rendering on-device.
 
 開発の道筋をここで管理する。優先度の高い順に記載。
 

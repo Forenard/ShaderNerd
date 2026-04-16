@@ -5,8 +5,10 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -41,6 +43,7 @@ import de.markusfisch.android.shadereditor.fragment.EditorFragment;
 import de.markusfisch.android.shadereditor.opengl.ShaderError;
 import de.markusfisch.android.shadereditor.service.ShaderWallpaperService;
 import de.markusfisch.android.shadereditor.view.SystemBarMetrics;
+import de.markusfisch.android.shadereditor.widget.ShaderView;
 
 public class MainActivity extends AppCompatActivity {
 	private static final String CODE_VISIBLE = "code_visible";
@@ -58,7 +61,12 @@ public class MainActivity extends AppCompatActivity {
 	private AudioShaderPlayerManager audioShaderPlayerManager;
 	private NavigationManager navigationManager;
 	private DataSource dataSource;
+	private ShaderView previewView;
+	private View compileShaderButton;
+	private ProgressBar compileProgress;
 	private boolean isInitialLoad = false;
+	private boolean visualCompileInFlight = false;
+	private boolean audioCompileInFlight = false;
 
 	@Override
 	protected void onCreate(@Nullable Bundle state) {
@@ -79,12 +87,24 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 		navigationManager = new NavigationManager(this);
+		previewView = findViewById(R.id.preview);
 		shaderViewManager = new ShaderViewManager(this,
-				findViewById(R.id.preview),
+				previewView,
 				findViewById(R.id.quality),
 				createShaderViewListener());
-		audioShaderPlayerManager = new AudioShaderPlayerManager(this);
+		audioShaderPlayerManager = new AudioShaderPlayerManager(this,
+				infoLog -> handleShaderInfoLog(EditorFragment.Tab.AUDIO, infoLog));
+		audioShaderPlayerManager.setAudioTabSelected(!editorFragment.isVisualTabSelected());
 		shaderViewManager.setTimeSource(audioShaderPlayerManager.getTimeSource());
+		shaderViewManager.setPlaybackUniformProvider(
+				audioShaderPlayerManager.getPlaybackUniformProvider());
+		View mainCoordinator = findViewById(R.id.main_coordinator);
+		ViewCompat.setOnApplyWindowInsetsListener(mainCoordinator, (view, insets) -> {
+			audioShaderPlayerManager.setKeyboardVisible(
+					insets.isVisible(WindowInsetsCompat.Type.ime()));
+			return insets;
+		});
+		ViewCompat.requestApplyInsets(mainCoordinator);
 		ExtraKeysManager extraKeysManager = new ExtraKeysManager(this,
 				findViewById(android.R.id.content),
 				editorFragment::insert);
@@ -104,6 +124,21 @@ public class MainActivity extends AppCompatActivity {
 				uiManager,
 				dataSource,
 				createShaderViewListener());
+		if (previewView != null) {
+			previewView.setOnTouchListener((v, event) -> {
+				if (event != null) {
+					audioShaderPlayerManager.updateTouch(event,
+							v.getWidth(),
+							v.getHeight(),
+							shaderManager.getQuality());
+				}
+				return false;
+			});
+			previewView.addOnLayoutChangeListener((v,
+					left, top, right, bottom,
+					oldLeft, oldTop, oldRight, oldBottom) -> syncAudioPreviewMetrics());
+			previewView.post(this::syncAudioPreviewMetrics);
+		}
 
 		MainMenuManager mainMenuManager = new MainMenuManager(
 				this,
@@ -115,6 +150,15 @@ public class MainActivity extends AppCompatActivity {
 				v -> this.runShader(),
 				v -> uiManager.toggleCodeVisibility(),
 				v -> editorFragment.showErrors());
+		View compileShader = findViewById(R.id.compile_shader);
+		View resetTime = findViewById(R.id.reset_time);
+		compileShaderButton = compileShader;
+		compileProgress = findViewById(R.id.compile_progress);
+		ViewCompat.setTooltipText(compileShader, getText(R.string.compile_shader));
+		ViewCompat.setTooltipText(resetTime, getText(R.string.reset_time));
+		compileShader.setOnClickListener(v -> compileCurrentShader());
+		resetTime.setOnClickListener(v -> resetShaderTime());
+		updateCompileUi();
 
 		// Handle back button to exit fullscreen mode
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -146,25 +190,29 @@ public class MainActivity extends AppCompatActivity {
 				if (editorFragment.hasErrors()) {
 					editorFragment.clearError();
 					editorFragment.highlightErrors();
+					updateErrorIndicator();
 				}
+				setCompiling(EditorFragment.Tab.VISUAL, true);
 				shaderViewManager.setFragmentShader(editorFragment.getFragmentShaderText());
 			} else {
-				audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
+				audioShaderPlayerManager.setEditedAudioShader(
+						editorFragment.getAudioShaderText());
 				updatePlaybackUiMode();
 			}
 		});
 		editorFragment.setOnTextModifiedListener(() -> {
 			shaderManager.setModified(true);
 			if (!editorFragment.isVisualTabSelected()) {
-				audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
 				updatePlaybackUiMode();
 			}
 		});
 		editorFragment.setCodeCompletionListener(extraKeysManager::setCompletions);
-		editorFragment.setOnTabChangedListener(tab -> findViewById(R.id.show_errors)
-				.setVisibility(tab == EditorFragment.Tab.VISUAL && editorFragment.hasErrors()
-						? View.VISIBLE
-						: View.GONE));
+		editorFragment.setOnTabChangedListener(tab -> {
+			audioShaderPlayerManager.setAudioTabSelected(tab == EditorFragment.Tab.AUDIO);
+			updateErrorIndicator();
+			updatePlaybackUiMode();
+		});
+		updateErrorIndicator();
 	}
 
 	@Override
@@ -190,7 +238,10 @@ public class MainActivity extends AppCompatActivity {
 	@Override
 	protected void onResume() {
 		super.onResume();
+		updateErrorIndicator();
 		updatePlaybackUiMode();
+		updateCompileUi();
+		syncAudioPreviewMetrics();
 		audioShaderPlayerManager.refreshUi();
 		shaderListManager.loadShadersAsync();
 		shaderViewManager.onResume();
@@ -296,10 +347,6 @@ public class MainActivity extends AppCompatActivity {
 	@Contract(" -> new")
 	private ShaderViewManager.Listener createShaderViewListener() {
 		return new ShaderViewManager.Listener() {
-			private final View showErrors = findViewById(R.id.show_errors);
-			private final View mainCoordinator = findViewById(R.id.main_coordinator);
-			private final View toolbar = findViewById(R.id.toolbar);
-
 			@Override
 			public void onFramesPerSecond(int fps) {
 				if (fps > 0) {
@@ -310,58 +357,13 @@ public class MainActivity extends AppCompatActivity {
 
 			@Override
 			public void onInfoLog(@NonNull List<ShaderError> infoLog) {
-				runOnUiThread(() -> {
-					editorFragment.setErrors(infoLog);
-					showErrors.setVisibility(editorFragment.hasErrors()
-							? View.VISIBLE
-							: View.GONE);
-					if (editorFragment.hasErrors()) {
-						showError(infoLog.get(0).toString());
-					}
-				});
+				runOnUiThread(() -> handleShaderInfoLog(EditorFragment.Tab.VISUAL, infoLog));
 			}
 
 			@Override
 			public void onQualityChanged(float quality) {
 				shaderManager.setQuality(quality);
-			}
-
-			private void showError(String error) {
-				Snackbar snackbar = Snackbar.make(mainCoordinator,
-								error,
-								Snackbar.LENGTH_LONG)
-						.setAction(R.string.details,
-								v -> editorFragment.showErrors());
-				moveSnackBarOverActionBar(snackbar.getView());
-				snackbar.show();
-			}
-
-			private void moveSnackBarOverActionBar(View snackbarView) {
-				if (snackbarView == null) {
-					return;
-				}
-
-				ViewGroup.LayoutParams layoutParams =
-						snackbarView.getLayoutParams();
-				if (!(layoutParams instanceof
-						CoordinatorLayout.LayoutParams params)) {
-					return;
-				}
-
-				params.gravity = Gravity.TOP;
-
-				int topInset = 0;
-				WindowInsetsCompat rootInsets =
-						ViewCompat.getRootWindowInsets(mainCoordinator);
-				if (rootInsets != null) {
-					topInset = rootInsets.getInsets(
-							WindowInsetsCompat.Type.systemBars()).top;
-				}
-				if (topInset == 0 && toolbar != null) {
-					topInset = toolbar.getPaddingTop();
-				}
-				params.topMargin = topInset;
-				snackbarView.setLayoutParams(params);
+				syncAudioPreviewMetrics();
 			}
 		};
 	}
@@ -477,6 +479,11 @@ public class MainActivity extends AppCompatActivity {
 			}
 
 			@Override
+			public void onBrowseAudioSamples() {
+				navigationManager.goToAudioSamples(shaderManager.browseAudioSamplesLauncher);
+			}
+
+			@Override
 			public void onShowSettings() {
 				navigationManager.goToPreferences();
 			}
@@ -528,18 +535,23 @@ public class MainActivity extends AppCompatActivity {
 
 	private void runShader() {
 		String src = editorFragment.getFragmentShaderText();
-		audioShaderPlayerManager.setAudioShader(editorFragment.getAudioShaderText());
+		audioShaderPlayerManager.setEditedAudioShader(editorFragment.getAudioShaderText());
 		updatePlaybackUiMode();
 		editorFragment.clearError();
+		updateErrorIndicator();
 		if (ShaderEditorApp.preferences.doesSaveOnRun()) {
 			PreviewActivity.renderStatus.reset();
 			shaderManager.saveShader();
 		}
 		if (audioShaderPlayerManager.hasAudioShader()) {
-			audioShaderPlayerManager.playFromStart();
+			setCompiling(EditorFragment.Tab.AUDIO, true);
+			if (!audioShaderPlayerManager.playFromStart()) {
+				setCompiling(EditorFragment.Tab.AUDIO, false);
+			}
 		}
 		if (ShaderEditorApp.preferences.doesRunInBackground() ||
 				audioShaderPlayerManager.hasAudioShader()) {
+			setCompiling(EditorFragment.Tab.VISUAL, true);
 			shaderViewManager.setFragmentShader(src);
 		} else {
 			navigationManager.showPreview(src, shaderManager.getQuality(),
@@ -549,7 +561,118 @@ public class MainActivity extends AppCompatActivity {
 
 	private void updatePlaybackUiMode() {
 		boolean hasAudioShader = audioShaderPlayerManager.hasAudioShader();
-		uiManager.updateUiToPreferences(hasAudioShader, hasAudioShader);
+		uiManager.updateUiToPreferences(
+				hasAudioShader,
+				audioShaderPlayerManager.shouldShowPlaybackUi());
+	}
+
+	private void compileCurrentShader() {
+		if (editorFragment.isVisualTabSelected()) {
+			editorFragment.clearError();
+			updateErrorIndicator();
+			setCompiling(EditorFragment.Tab.VISUAL, true);
+			shaderViewManager.setFragmentShader(editorFragment.getFragmentShaderText());
+			return;
+		}
+		setCompiling(EditorFragment.Tab.AUDIO, true);
+		if (!audioShaderPlayerManager.compileEditedShader()) {
+			setCompiling(EditorFragment.Tab.AUDIO, false);
+		}
+	}
+
+	private void resetShaderTime() {
+		shaderViewManager.resetAnimationTime();
+		audioShaderPlayerManager.resetTime();
+	}
+
+	private void syncAudioPreviewMetrics() {
+		if (previewView == null || shaderManager == null || audioShaderPlayerManager == null) {
+			return;
+		}
+		audioShaderPlayerManager.setPreviewSurface(
+				previewView.getWidth(),
+				previewView.getHeight(),
+				shaderManager.getQuality());
+	}
+
+	private void handleShaderInfoLog(@NonNull EditorFragment.Tab tab,
+			@NonNull List<ShaderError> infoLog) {
+		setCompiling(tab, false);
+		if (tab == EditorFragment.Tab.AUDIO) {
+			editorFragment.setAudioErrors(infoLog);
+		} else {
+			editorFragment.setVisualErrors(infoLog);
+		}
+		updateErrorIndicator();
+		if (!infoLog.isEmpty()) {
+			showError(infoLog.get(0).toString(), tab);
+		}
+	}
+
+	private void setCompiling(@NonNull EditorFragment.Tab tab, boolean compiling) {
+		if (tab == EditorFragment.Tab.AUDIO) {
+			audioCompileInFlight = compiling;
+		} else {
+			visualCompileInFlight = compiling;
+		}
+		updateCompileUi();
+	}
+
+	private void updateCompileUi() {
+		boolean compiling = visualCompileInFlight || audioCompileInFlight;
+		if (compileShaderButton != null) {
+			compileShaderButton.setEnabled(!compiling);
+			compileShaderButton.setAlpha(compiling ? .35f : 1f);
+		}
+		if (compileProgress != null) {
+			compileProgress.setVisibility(compiling ? View.VISIBLE : View.GONE);
+		}
+	}
+
+	private void updateErrorIndicator() {
+		View showErrors = findViewById(R.id.show_errors);
+		showErrors.setVisibility(editorFragment.hasErrors()
+				? View.VISIBLE
+				: View.GONE);
+	}
+
+	private void showError(@NonNull String error, @NonNull EditorFragment.Tab tab) {
+		View mainCoordinator = findViewById(R.id.main_coordinator);
+		Snackbar snackbar = Snackbar.make(mainCoordinator,
+						error,
+						Snackbar.LENGTH_LONG)
+				.setAction(R.string.details, v -> {
+					editorFragment.setCurrentTab(tab);
+					editorFragment.showErrors();
+				});
+		moveSnackBarOverActionBar(snackbar.getView());
+		snackbar.show();
+	}
+
+	private void moveSnackBarOverActionBar(@Nullable View snackbarView) {
+		if (snackbarView == null) {
+			return;
+		}
+
+		ViewGroup.LayoutParams layoutParams = snackbarView.getLayoutParams();
+		if (!(layoutParams instanceof CoordinatorLayout.LayoutParams params)) {
+			return;
+		}
+
+		params.gravity = Gravity.TOP;
+
+		View mainCoordinator = findViewById(R.id.main_coordinator);
+		View toolbar = findViewById(R.id.toolbar);
+		int topInset = 0;
+		WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(mainCoordinator);
+		if (rootInsets != null) {
+			topInset = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+		}
+		if (topInset == 0 && toolbar != null) {
+			topInset = toolbar.getPaddingTop();
+		}
+		params.topMargin = topInset;
+		snackbarView.setLayoutParams(params);
 	}
 
 	private void recoverFromCrashIfNeeded() {

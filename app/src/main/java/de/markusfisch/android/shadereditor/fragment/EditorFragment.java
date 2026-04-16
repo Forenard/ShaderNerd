@@ -42,6 +42,8 @@ public class EditorFragment extends Fragment {
 	}
 
 	@Nullable
+	private View editorView;
+	@Nullable
 	private View editorContainer;
 	@Nullable
 	private ShaderEditor shaderEditor;
@@ -53,6 +55,10 @@ public class EditorFragment extends Fragment {
 	private String fragmentShader = "";
 	@NonNull
 	private String audioShader = "";
+	@NonNull
+	private List<ShaderError> visualErrors = Collections.emptyList();
+	@NonNull
+	private List<ShaderError> audioErrors = Collections.emptyList();
 	@NonNull
 	private Tab currentTab = Tab.VISUAL;
 	private boolean suppressCallbacks = false;
@@ -82,6 +88,7 @@ public class EditorFragment extends Fragment {
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle state) {
 		View view = inflater.inflate(R.layout.fragment_editor, container, false);
 
+		editorView = view;
 		editorTabs = view.findViewById(R.id.editor_tabs);
 		editorContainer = view.findViewById(R.id.editor_container);
 		shaderEditor = view.findViewById(R.id.editor);
@@ -161,6 +168,7 @@ public class EditorFragment extends Fragment {
 			undoRedo.detachListener();
 		}
 		editorTabs = null;
+		editorView = null;
 		editorContainer = null;
 		shaderEditor = null;
 		undoRedo = null;
@@ -207,13 +215,11 @@ public class EditorFragment extends Fragment {
 	}
 
 	public boolean hasErrors() {
-		return shaderEditor != null && shaderEditor.hasErrors();
+		return !getErrorsFor(currentTab).isEmpty();
 	}
 
 	public void clearError() {
-		if (shaderEditor != null) {
-			shaderEditor.setErrors(Collections.emptyList());
-		}
+		setErrorsFor(currentTab, Collections.emptyList());
 	}
 
 	public void updateHighlighting() {
@@ -224,31 +230,34 @@ public class EditorFragment extends Fragment {
 
 	public void highlightErrors() {
 		if (shaderEditor != null) {
-			shaderEditor.updateErrorHighlighting();
+			shaderEditor.setErrors(getErrorsFor(currentTab));
+			shaderEditor.post(shaderEditor::updateErrorHighlighting);
 		}
 	}
 
 	public void setErrors(@NonNull List<ShaderError> errors) {
-		if (shaderEditor == null) {
-			return;
-		}
-		shaderEditor.setErrors(errors);
-		highlightErrors();
+		setErrorsFor(currentTab, errors);
+	}
+
+	public void setVisualErrors(@NonNull List<ShaderError> errors) {
+		setErrorsFor(Tab.VISUAL, errors);
+	}
+
+	public void setAudioErrors(@NonNull List<ShaderError> errors) {
+		setErrorsFor(Tab.AUDIO, errors);
 	}
 
 	public void showErrors() {
-		if (shaderEditor == null) {
-			return;
-		}
-		List<ShaderError> errors = shaderEditor.getErrors();
+		List<ShaderError> errors = getErrorsFor(currentTab);
 		new ErrorListModal(errors, this::navigateToLine).show(getParentFragmentManager(),
 				ErrorListModal.TAG);
 	}
 
 	public void navigateToLine(int lineNumber) {
-		if (shaderEditor != null) {
-			shaderEditor.navigateToLine(lineNumber);
+		if (shaderEditor == null) {
+			return;
 		}
+		shaderEditor.navigateToLine(lineNumber);
 	}
 
 
@@ -298,6 +307,8 @@ public class EditorFragment extends Fragment {
 	public void setShaderTexts(@Nullable String fragmentShader, @Nullable String audioShader) {
 		this.fragmentShader = fragmentShader == null ? "" : fragmentShader;
 		this.audioShader = audioShader == null ? "" : audioShader;
+		visualErrors = Collections.emptyList();
+		audioErrors = Collections.emptyList();
 		ShaderEditorApp.editHistory.clear();
 		ShaderEditorApp.audioEditHistory.clear();
 		showCurrentTabText(true);
@@ -323,13 +334,13 @@ public class EditorFragment extends Fragment {
 	}
 
 	public boolean isCodeVisible() {
-		return editorContainer == null || editorContainer.getVisibility() == View.VISIBLE;
+		return editorView == null || editorView.getVisibility() == View.VISIBLE;
 	}
 
 	public boolean toggleCode() {
 		boolean visible = isCodeVisible();
-		if (editorContainer != null) {
-			editorContainer.setVisibility(visible ? View.GONE : View.VISIBLE);
+		if (editorView != null) {
+			editorView.setVisibility(visible ? View.GONE : View.VISIBLE);
 		}
 		if (visible && shaderEditor != null) {
 			SoftKeyboard.hide(getActivity(), shaderEditor);
@@ -392,7 +403,6 @@ public class EditorFragment extends Fragment {
 		if (shaderEditor == null || undoRedo == null) {
 			return;
 		}
-		clearError();
 		undoRedo.stopListeningForChanges();
 		if (clearHistory) {
 			undoRedo.clearHistory();
@@ -400,6 +410,8 @@ public class EditorFragment extends Fragment {
 		suppressCallbacks = true;
 		shaderEditor.setTextHighlighted(currentTab == Tab.AUDIO ? audioShader : fragmentShader);
 		suppressCallbacks = false;
+		shaderEditor.setErrors(getErrorsFor(currentTab));
+		shaderEditor.post(shaderEditor::updateErrorHighlighting);
 		undoRedo.listenForChanges();
 	}
 
@@ -423,5 +435,23 @@ public class EditorFragment extends Fragment {
 		return tab == Tab.AUDIO
 				? ShaderEditorApp.audioEditHistory
 				: ShaderEditorApp.editHistory;
+	}
+
+	@NonNull
+	private List<ShaderError> getErrorsFor(@NonNull Tab tab) {
+		return tab == Tab.AUDIO ? audioErrors : visualErrors;
+	}
+
+	private void setErrorsFor(@NonNull Tab tab, @NonNull List<ShaderError> errors) {
+		List<ShaderError> safeErrors = List.copyOf(errors);
+		if (tab == Tab.AUDIO) {
+			audioErrors = safeErrors;
+		} else {
+			visualErrors = safeErrors;
+		}
+		if (shaderEditor != null && currentTab == tab) {
+			shaderEditor.setErrors(safeErrors);
+			shaderEditor.post(shaderEditor::updateErrorHighlighting);
+		}
 	}
 }
